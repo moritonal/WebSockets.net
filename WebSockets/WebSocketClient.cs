@@ -126,9 +126,17 @@ namespace WebSockets
             return data.ToArray();
         }
 
-        public void Write(byte[] msg)
+        public bool Write(byte[] msg)
         {
-            this.Socket.Send(msg);
+            try
+            {
+                this.Socket.Send(msg);
+                return true;
+            }
+            catch (SocketException)
+            {
+                return false;
+            }
         }
 
         private string AcceptKey(string key)
@@ -143,7 +151,7 @@ namespace WebSockets
             return sha1.ComputeHash(System.Text.Encoding.ASCII.GetBytes(str));
         }
 
-        public void SendPacket(string msg)
+        public bool SendPacket(string msg)
         {
             List<byte> data = new List<byte>();
 
@@ -167,7 +175,7 @@ namespace WebSockets
             //Add payload
             data.AddRange(WebSocketClient.Encoder.GetBytes(msg));
 
-            this.Write(data.ToArray());
+            return this.Write(data.ToArray());
         }
 
         public WebSocketMessage ProcessPacket(byte[] data)

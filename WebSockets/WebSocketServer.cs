@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading;
 using System.Net;
 using System.Net.Sockets;
-
+using System.Collections.Concurrent;
 
 namespace WebSockets
 {
@@ -13,15 +13,15 @@ namespace WebSockets
     {
         public Action<WebSocketClient> onClientJoined;
         private TcpListener listener;
-        private List<WebSocketClient> clients = new List<WebSocketClient>();
+
+        public ConcurrentDictionary<Guid, WebSocketClient> Clients = new ConcurrentDictionary<Guid, WebSocketClient>();
         public Action<string> onLog;
 
-        public WebSocketServer(int port)
-        {
-            listener = new TcpListener(new IPEndPoint(IPAddress.Any, port));
-            listener.Start();
+        public int Port;
 
-            listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
+        public WebSocketServer(int Port)
+        {
+            this.Port = Port;
         }
 
         public void Log(string msg)
@@ -37,12 +37,12 @@ namespace WebSockets
 
         void TcpClientJoined(IAsyncResult res)
         {
-            lock (clients)
+            lock (Clients)
             {
-                var client = listener.EndAcceptTcpClient(res);
-                clients.Add(new WebSocketClient(client, this));
+                var webSocketClient = new WebSocketClient(listener.EndAcceptTcpClient(res), this);
 
-                var webSocketClient = clients.Last();
+                Clients.TryAdd(Guid.NewGuid(), webSocketClient);
+
                 if (this.onClientJoined != null)
                     this.onClientJoined(webSocketClient);
 
@@ -50,6 +50,14 @@ namespace WebSockets
 
                 listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
             }
+        }
+
+        internal void Init()
+        {
+            listener = new TcpListener(new IPEndPoint(IPAddress.Any, this.Port));
+            listener.Start();
+
+            listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
         }
     }
 }
