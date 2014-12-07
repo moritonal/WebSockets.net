@@ -12,8 +12,6 @@ namespace WebSockets
 {
     public partial class Form1 : Form
     {
-        GameEngine engine;
-
         public Form1()
         {
             InitializeComponent();
@@ -21,17 +19,22 @@ namespace WebSockets
 
         private void Form1_Load(object sender, EventArgs e)
         {
-            WebSocketServer server = new WebSocketServer();
-            server.toWrite = (string str) =>
+            WebSocketServer server = new WebSocketServer(9090);
+
+            server.onLog = (string str) =>
+            {
+                this.textBox1.Invoke(new Action(() =>
                 {
-                    this.textBox1.Invoke(new Action(() => 
-                    {
-                        this.textBox1.AppendText(str + Environment.NewLine);
-                    }));
-                };
+                    this.textBox1.AppendText(str + Environment.NewLine);
+                }));
+            };
+
             server.onClientJoined = (WebSocketClient client) =>
             {
-
+                client.onMessageRecieved = (WebSocketMessage msg) =>
+                {
+                    client.SendPacket(String.Join("", WebSocketClient.Encoder.GetString(msg.data.ToArray())));
+                };
             };
         }
     }

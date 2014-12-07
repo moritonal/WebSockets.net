@@ -4,31 +4,46 @@
 	<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
 	<script src="http://jquery-websocket.googlecode.com/files/jquery.websocket-0.0.1.js"></script>
 	<script type="text/javascript">
+		var webSocket = "";
+		
+		function SendTextBox()
+		{
+			webSocket.send($("#textbox").val());
+		}
 		function WebSocketTest()
 		{
-			var ws = new WebSocket("ws://localhost:9090");
-			ws.onopen = function()
+			if (webSocket == "")
 			{
-				console.log("Connection opened");
-				ws.send($("#test").val());
-			};
-			ws.onmessage = function (evt) 
+				webSocket = new WebSocket("ws://localhost:9090");
+				
+				webSocket.onopen = function()
+				{
+					console.log("Connection opened");
+					SendTextBox();
+				};
+				webSocket.onmessage = function (evt) 
+				{
+					console.log(evt.data);
+				};
+				webSocket.onclose = function()
+				{
+					console.log("Connection closed");
+				};
+			}
+			else
 			{
-				console.log(evt.data);
-			};
-			ws.onclose = function()
-			{
-				console.log("Connection closed");
-			};
+				SendTextBox();
+			}
 		}
-		$( document ).ready(function()
+		
+		$(document).ready(function()
 		{
 			WebSocketTest()
 		});
 	</script>
 </head>
 <body>
-	<input id="test" value="abc" />
-	<button onclick="WebSocketTest()">Test</button>
+	<input id="textbox" value="abc" />
+	<button onclick="WebSocketTest()">Send</button>
 </body>
 </html>

@@ -7,6 +7,7 @@ using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading.Tasks;
 
 namespace WebSockets
 {
@@ -32,38 +33,90 @@ namespace WebSockets
 
     class WebSocketClient
     {
-        private TcpClient client;
-        WebSocketServer server;
         static private string guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+        static SHA1 sha1 = SHA1CryptoServiceProvider.Create();
+
+        public static Encoding Encoder
+        {
+            get
+            {
+                return Encoding.UTF8;
+            }
+        }
+
+        private TcpClient tcpClient;
+        public WebSocketServer Parent;
+        public Action<WebSocketMessage> onMessageRecieved;
+        private byte[] globalBuffer = new byte[2048];
+
+        public Socket Socket
+        {
+            get
+            {
+                return this.tcpClient.Client;
+            }
+        }
 
         public WebSocketClient(TcpClient client, WebSocketServer server)
         {
-            this.server = server;
-            this.client = client;
+            this.Parent = server;
+            this.tcpClient = client;
+        }
 
+        ~WebSocketClient()
+        {
+            this.tcpClient.Close();
+        }
+
+        public void Init()
+        {
+            InitHandshake();
+
+            BeginRecievePacket();
+        }
+
+        private void InitHandshake()
+        {
             var buffer = this.Recieve();
-            WebSocketHandshake handshake = new WebSocketHandshake(this.Encoder.GetString(buffer));
+
+            WebSocketHandshake handshake = new WebSocketHandshake(WebSocketClient.Encoder.GetString(buffer));
 
             var key = handshake.headers["Sec-WebSocket-Key"];
-            var newKey = this.AcceptKey(key);
 
             var response = "HTTP/1.1 101 Switching Protocols" + Environment.NewLine
                          + "Upgrade: websocket" + Environment.NewLine
                          + "Connection: Upgrade" + Environment.NewLine
-                         + "Sec-WebSocket-Accept: " + newKey + Environment.NewLine + Environment.NewLine;
+                         + "Sec-WebSocket-Accept: " + this.AcceptKey(key) + Environment.NewLine + Environment.NewLine;
 
-            this.Write(this.Encoder.GetBytes(response));
-
-            var data = this.RecievePacket();
-
-            this.SendPacket(String.Join("", this.Encoder.GetString(data.data.ToArray())));
-
-            //this.client.Close();
+            //Finish handshake
+            this.Write(WebSocketClient.Encoder.GetBytes(response));
         }
+
+        public void BeginRecievePacket()
+        {
+            this.Socket.BeginReceive(globalBuffer, 0, 2048, SocketFlags.None, (IAsyncResult res) =>
+            {
+                try
+                {
+                    int amount = this.Socket.EndReceive(res);
+                    if (amount > 0)
+                    {
+                        if (onMessageRecieved != null)
+                            this.onMessageRecieved(ProcessPacket(this.globalBuffer.Take(amount).ToArray()));
+                    }
+                    this.BeginRecievePacket();
+                }
+                catch (SocketException)
+                {
+                    return;
+                }
+            }, null);
+        }
+
         public byte[] Recieve()
         {
             byte[] buffer = new byte[2048];
-            var num = client.Client.Receive(buffer);
+            var num = this.Socket.Receive(buffer);
 
             List<byte> data = new List<byte>();
 
@@ -75,15 +128,7 @@ namespace WebSockets
 
         public void Write(byte[] msg)
         {
-            client.Client.Send(msg);
-        }
-
-        Encoding Encoder
-        {
-            get
-            {
-                return Encoding.UTF8;
-            }
+            this.Socket.Send(msg);
         }
 
         private string AcceptKey(string key)
@@ -93,24 +138,9 @@ namespace WebSockets
             return Convert.ToBase64String(hashBytes);
         }
 
-        static SHA1 sha1 = SHA1CryptoServiceProvider.Create();
-
         private byte[] ComputeHash(string str)
         {
             return sha1.ComputeHash(System.Text.Encoding.ASCII.GetBytes(str));
-        }
-
-        public struct Msg
-        {
-            public bool FIN;
-            public bool RSV1;
-            public bool RSV2;
-            public bool RSV3;
-            public byte Opcode;
-            public bool Mask;
-            public byte payloadLength;
-            public byte[] maskingKey;
-            public List<byte> data;
         }
 
         public void SendPacket(string msg)
@@ -118,56 +148,31 @@ namespace WebSockets
             List<byte> data = new List<byte>();
 
             var s = new ByteAsBits();
-            s[0] = true;
-            s[1] = false;
-            s[2] = false;
-            s[3] = false;
-            s[4, 8] = 1;
-
+            {
+                s[0] = true;
+                s[1] = false;
+                s[2] = false;
+                s[3] = false;
+                s[4, 8] = 1;
+            }
             data.Add(s.ToByte());
 
             s = new ByteAsBits();
-
-            s[0] = false; //Mask
-            s[1, 8] = (byte)msg.Length;
-
+            {
+                s[0] = false; //Mask
+                s[1, 8] = (byte)msg.Length;
+            }
             data.Add(s.ToByte());
 
-            var bb = this.Encoder.GetBytes(msg);
-
-            for (int i = 0; i < msg.Length; i++)
-                data.Add(bb[i]);
-
-            /*BitWriter writer = new BitWriter(4 + 4 + 7 + 1 + (msg.Length * 8));
-            writer.addBit(true); //FIN
-            writer.addBit(false); //RSV1
-            writer.addBit(false); //RSV2
-            writer.addBit(false); //RSV3
-            writer.addByte(1, 4, true); //Opcode
-            writer.addByte((byte)msg.Length, 7); //Payload Length
-            writer.addBit(false); //Mask
-
-            var bb = this.Encoder.GetBytes(msg);
-
-            for (int i = 0; i < msg.Length; i++)
-                writer.addByte(bb[i], 8);*/
-
-            var result = new BitReader(data.ToArray()).ToString();
-            var _ = "";
-            for (int i = 0; i < result.Length; i++)
-                _ += result[i] + ((i + 1) % 4 == 0 ? " " : "");
-            this.server.toWrite("Out: " + _ + " - " + msg);
+            //Add payload
+            data.AddRange(WebSocketClient.Encoder.GetBytes(msg));
 
             this.Write(data.ToArray());
         }
 
-        public Msg RecievePacket()
+        public WebSocketMessage ProcessPacket(byte[] data)
         {
-            var data = this.Recieve();
-
-            Msg msg = new Msg();
-
-            BitReader reader = new BitReader(data);
+            WebSocketMessage msg = new WebSocketMessage();
 
             msg.FIN = data[0].GetBits()[0];
             msg.RSV1 = data[0].GetBits()[1];
@@ -190,106 +195,15 @@ namespace WebSockets
 
             msg.data = new List<byte>();
 
+            //Parse payload
             for (int i = 0; i < msg.payloadLength; i++)
-            {
                 msg.data.Add(data[6 + i]);
-            }
 
+            //De XOR payload
             for (int i = 0; i < msg.payloadLength; i++)
-            {
                 msg.data[i] ^= msg.maskingKey[i % 4];
-            }
-
-            var str = this.Encoder.GetString(msg.data.ToArray());
-
-            var _ = "";
-            for (int i = 0; i < reader.ToString().Length; i++)
-                _ += reader.ToString()[i] + ((i + 1) % 4 == 0 ? " " : "");
-            this.server.toWrite("In:  " + _ + " - " + str);
-
+            
             return msg;
-        }
-    }
-
-    class BitWriter
-    {
-        BitArray data;
-        int index = 0;
-
-        public BitWriter(int size)
-        {
-            data = new BitArray(size);
-        }
-
-        public void addBit(bool value)
-        {
-            data.Set(index++, value);
-        }
-
-        public void addByte(byte b, int length, bool reverse = false)
-        {
-            BitArray bb = new BitArray(new byte[] { b });
-            BitArray temp = new BitArray(length);
-            for (int i = 0; i < length; i++)
-                temp.Set(i, bb.Get(i));
-
-            var list = temp.OfType<bool>().ToList();
-
-            if (reverse)
-                list.Reverse();
-
-            for (int i = 0; i < length; i++)
-                data.Set(index++, list[i]);
-        }
-
-        public byte[] getBytes()
-        {
-            byte[] b = new byte[data.Count];
-            data.CopyTo(b, 0);
-            return b;
-        }
-
-        public override string ToString()
-        {
-            return String.Join("", data.OfType<bool>().Select(x => x ? "1" : "0").ToArray());
-        }
-    }
-
-    class BitReader
-    {
-        BitArray data;
-        int index = 0;
-
-        public override string ToString()
-        {
-            return String.Join("",data.OfType<bool>().Select(x=>x?"1":"0").ToArray());
-        }
-
-        public BitReader(byte[] data)
-        {
-            this.data = new BitArray(data);
-        }
-
-        public bool getBit()
-        {
-            return data.Get(index++);
-        }
-
-        public byte getByte(int length = 4, bool bigEnd = false)
-        {
-            List<bool> bits = new List<bool>();
-
-            for (int i = 0; i < length; i++)
-                bits.Add(this.getBit());
-
-            if (bigEnd)
-                bits.Reverse();
-
-            BitArray a = new BitArray(bits.ToArray());
-            byte[] b = new byte[1];
-            a.CopyTo(b, 0);
-
-            return b[0];
         }
     }
 }
