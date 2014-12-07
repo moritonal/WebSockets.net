@@ -11,7 +11,7 @@ using System.Threading.Tasks;
 
 namespace WebSockets
 {
-    class WebSocketHandshake
+    public class WebSocketHandshake
     {
         public string request;
         public Dictionary<string, string> headers = new Dictionary<string, string>();
@@ -31,7 +31,7 @@ namespace WebSockets
         }
     }
 
-    class WebSocketClient
+    public class WebSocketClient
     {
         static private string guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
         static SHA1 sha1 = SHA1CryptoServiceProvider.Create();
@@ -46,7 +46,7 @@ namespace WebSockets
 
         private TcpClient tcpClient;
         public WebSocketServer Parent;
-        public Action<WebSocketMessage> onMessageRecieved;
+        public Action<WebSocketMessage> onMessageRecieved = null;
         private byte[] globalBuffer = new byte[2048];
 
         public Socket Socket
@@ -182,34 +182,34 @@ namespace WebSockets
         {
             WebSocketMessage msg = new WebSocketMessage();
 
-            msg.FIN = data[0].GetBits()[0];
-            msg.RSV1 = data[0].GetBits()[1];
-            msg.RSV2 = data[0].GetBits()[2];
-            msg.RSV3 = data[0].GetBits()[3];
+            msg.Finished = data[0].GetBits()[0];
+            msg.Reserved1 = data[0].GetBits()[1];
+            msg.Reserved2 = data[0].GetBits()[2];
+            msg.Reserved3 = data[0].GetBits()[3];
 
             msg.Opcode = data[0].GetBits()[4, 8];
 
             msg.Mask = data[1].GetBits()[0];
-            msg.payloadLength = data[1].GetBits()[1, 8];
+            msg.PayloadLength = data[1].GetBits()[1, 8];
 
             if (msg.Mask)
             {
-                msg.maskingKey = new byte[4];
-                msg.maskingKey[0] = data[2];
-                msg.maskingKey[1] = data[3];
-                msg.maskingKey[2] = data[4];
-                msg.maskingKey[3] = data[5];
+                msg.MaskingKey = new byte[4];
+                msg.MaskingKey[0] = data[2];
+                msg.MaskingKey[1] = data[3];
+                msg.MaskingKey[2] = data[4];
+                msg.MaskingKey[3] = data[5];
             }
 
-            msg.data = new List<byte>();
+            msg.Data = new List<byte>();
 
             //Parse payload
-            for (int i = 0; i < msg.payloadLength; i++)
-                msg.data.Add(data[6 + i]);
+            for (int i = 0; i < msg.PayloadLength; i++)
+                msg.Data.Add(data[6 + i]);
 
             //De XOR payload
-            for (int i = 0; i < msg.payloadLength; i++)
-                msg.data[i] ^= msg.maskingKey[i % 4];
+            for (int i = 0; i < msg.PayloadLength; i++)
+                msg.Data[i] ^= msg.MaskingKey[i % 4];
             
             return msg;
         }

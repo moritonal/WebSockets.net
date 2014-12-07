@@ -9,13 +9,14 @@ using System.Collections.Concurrent;
 
 namespace WebSockets
 {
-    class WebSocketServer
+    public class WebSocketServer
     {
-        public Action<WebSocketClient> onClientJoined;
         private TcpListener listener;
 
         public ConcurrentDictionary<Guid, WebSocketClient> Clients = new ConcurrentDictionary<Guid, WebSocketClient>();
+
         public Action<string> onLog;
+		public Action<WebSocketClient> onClientJoined;
 
         public int Port;
 
@@ -24,16 +25,18 @@ namespace WebSockets
             this.Port = Port;
         }
 
-        public void Log(string msg)
-        {
-            if (this.onLog != null)
-                onLog(msg);
-        }
-
         ~WebSocketServer()
         {
             listener.Stop();
         }
+
+		public void Init()
+		{
+			listener = new TcpListener(new IPEndPoint(IPAddress.Any, this.Port));
+			listener.Start();
+
+			listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
+		}
 
         void TcpClientJoined(IAsyncResult res)
         {
@@ -52,12 +55,10 @@ namespace WebSockets
             }
         }
 
-        internal void Init()
-        {
-            listener = new TcpListener(new IPEndPoint(IPAddress.Any, this.Port));
-            listener.Start();
-
-            listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
-        }
+		public void Log(string msg)
+		{
+			if (this.onLog != null)
+				onLog(msg);
+		}
     }
 }

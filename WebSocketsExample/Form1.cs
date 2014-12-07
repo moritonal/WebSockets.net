@@ -7,8 +7,9 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
+using WebSockets;
 
-namespace WebSockets
+namespace WebSocketsExample
 {
     public partial class Form1 : Form
     {
@@ -33,7 +34,7 @@ namespace WebSockets
             {
                 client.onMessageRecieved = (WebSocketMessage msg) =>
                 {
-                    client.SendPacket(String.Join("", WebSocketClient.Encoder.GetString(msg.data.ToArray())));
+                    client.SendPacket(String.Join("", msg.DataAsString));
                 };
             };
 

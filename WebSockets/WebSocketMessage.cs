@@ -8,14 +8,22 @@ namespace WebSockets
 {
     public struct WebSocketMessage
     {
-        public bool FIN;
-        public bool RSV1;
-        public bool RSV2;
-        public bool RSV3;
+        public bool Finished;
+        public bool Reserved1;
+        public bool Reserved2;
+        public bool Reserved3;
         public byte Opcode;
         public bool Mask;
-        public byte payloadLength;
-        public byte[] maskingKey;
-        public List<byte> data;
+        public byte PayloadLength;
+        public byte[] MaskingKey;
+        public List<byte> Data;
+
+        public string DataAsString
+        {
+            get
+            {
+                return WebSocketClient.Encoder.GetString(this.Data.ToArray());
+            }
+        }
     }
 }
