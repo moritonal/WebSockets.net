@@ -13,7 +13,10 @@ namespace WebSockets
 {
     public class WebSocketHandshake
     {
+        public string method;
         public string request;
+        public string protocol;
+
         public Dictionary<string, string> headers = new Dictionary<string, string>();
 
         public WebSocketHandshake(string str)
@@ -22,32 +25,33 @@ namespace WebSockets
             var _getHeader = _headers.Where(x => x[0].StartsWith("GET"));
             var getHeader = _getHeader.FirstOrDefault().First().Split(' ');
 
+            method = getHeader[0];
             request = getHeader[1];
+            protocol = getHeader[2];
 
             foreach (var header in _headers.Where(x => x.Count() > 1))
             {
                 headers[header[0].Trim()] = header[1].Trim();
             }
         }
-    }
 
-    public class WebSocketClient
-    {
-        static private string guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-        static SHA1 sha1 = SHA1CryptoServiceProvider.Create();
-
-        public static Encoding Encoder
+        public string this[string key]
         {
             get
             {
-                return Encoding.UTF8;
+                if (this.headers.ContainsKey(key))
+                    return this.headers[key].ToLower();
+                else
+                    return null;
             }
         }
+    }
 
-        private TcpClient tcpClient;
+    public class SocketClient
+    {
+        public TcpClient tcpClient;
         public WebSocketServer Parent;
-        public Action<WebSocketMessage> onMessageRecieved = null;
-        private byte[] globalBuffer = new byte[2048];
+        protected WebSocketHandshake handshake;
 
         public Socket Socket
         {
@@ -57,60 +61,22 @@ namespace WebSockets
             }
         }
 
-        public WebSocketClient(TcpClient client, WebSocketServer server)
+        public SocketClient(TcpClient client, WebSocketServer parent)
         {
-            this.Parent = server;
             this.tcpClient = client;
+            this.Parent = parent;
         }
 
-        ~WebSocketClient()
+        ~SocketClient()
         {
             this.tcpClient.Close();
         }
-
-        public void Init()
+        public static Encoding Encoder
         {
-            InitHandshake();
-
-            BeginRecievePacket();
-        }
-
-        private void InitHandshake()
-        {
-            var buffer = this.Recieve();
-
-            WebSocketHandshake handshake = new WebSocketHandshake(WebSocketClient.Encoder.GetString(buffer));
-
-            var key = handshake.headers["Sec-WebSocket-Key"];
-
-            var response = "HTTP/1.1 101 Switching Protocols" + Environment.NewLine
-                         + "Upgrade: websocket" + Environment.NewLine
-                         + "Connection: Upgrade" + Environment.NewLine
-                         + "Sec-WebSocket-Accept: " + this.AcceptKey(key) + Environment.NewLine + Environment.NewLine;
-
-            //Finish handshake
-            this.Write(WebSocketClient.Encoder.GetBytes(response));
-        }
-
-        public void BeginRecievePacket()
-        {
-            this.Socket.BeginReceive(globalBuffer, 0, 2048, SocketFlags.None, (IAsyncResult res) =>
+            get
             {
-                try
-                {
-                    int amount = this.Socket.EndReceive(res);
-                    if (amount > 0)
-                    {
-                        if (onMessageRecieved != null)
-                            this.onMessageRecieved(ProcessPacket(this.globalBuffer.Take(amount).ToArray()));
-                    }
-                    this.BeginRecievePacket();
-                }
-                catch (SocketException)
-                {
-                    return;
-                }
-            }, null);
+                return Encoding.UTF8;
+            }
         }
 
         public byte[] Recieve()
@@ -137,6 +103,122 @@ namespace WebSockets
             {
                 return false;
             }
+        }
+
+        public bool Write(string str)
+        {
+            return this.Write(SocketClient.Encoder.GetBytes(str));
+        }
+
+        public string Protocol
+        {
+            get
+            {
+                var connectionMode = handshake["connection"];
+                if (connectionMode.IsNotNull())
+                {
+                    if (connectionMode == "keep-alive")
+                    {
+                        return "http";
+                    }
+                    else if (connectionMode == "upgrade")
+                    {
+                        var upgradeMode = handshake["upgrade"];
+                        if (upgradeMode.IsNotNull() && upgradeMode.ToLower() == "websocket")
+                        {
+                            return "ws";
+                        }
+                    }
+                }
+
+                return null;
+            }
+        }
+
+        public static implicit operator TcpClient(SocketClient client)
+        {
+            return client.tcpClient;
+        }
+
+        public void ReadHeader()
+        {
+            var buffer = this.Recieve();
+            handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(buffer));
+        }
+
+        public virtual void Handshake()
+        {
+
+        }
+
+        public virtual void Start()
+        {
+
+        }
+    }
+
+    public class HttpSocketClient : SocketClient
+    {
+        public HttpSocketClient(TcpClient client, WebSocketServer server)
+            : base(client, server)
+        {
+
+        }
+    }
+
+    public class WebSocketClient : SocketClient
+    {
+        static private string guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+        static SHA1 sha1 = SHA1CryptoServiceProvider.Create();
+        
+        public Action<WebSocketMessage> onMessageRecieved = null;
+        private byte[] globalBuffer = new byte[2048];
+
+        public WebSocketClient(TcpClient client, WebSocketServer server)
+            : base(client, server)
+        {
+
+        }
+
+        public override void Handshake()
+        {
+            var key = handshake["sec-websocket-key"];
+
+            var response = "HTTP/1.1 101 Switching Protocols" + Environment.NewLine
+                         + "Upgrade: websocket" + Environment.NewLine
+                         + "Connection: Upgrade" + Environment.NewLine
+                         + "Sec-WebSocket-Accept: " + this.AcceptKey(key) + Environment.NewLine + Environment.NewLine;
+
+            //Finish handshake
+            this.Write(WebSocketClient.Encoder.GetBytes(response));
+
+            base.Handshake();
+        }
+
+        public override void Start()
+        {
+            BeginRecievePacket();
+        }
+
+        public void BeginRecievePacket()
+        {
+            this.Socket.BeginReceive(globalBuffer, 0, 2048, SocketFlags.None, (IAsyncResult res) =>
+            {
+                try
+                {
+                    int amount = this.Socket.EndReceive(res);
+                    if (amount > 0)
+                    {
+                        if (onMessageRecieved != null)
+                            this.onMessageRecieved(ProcessPacket(this.globalBuffer.Take(amount).ToArray()));
+                    }
+                    this.BeginRecievePacket();
+                }
+                catch (SocketException)
+                {
+                    return;
+                }
+            }, null);
         }
 
         private string AcceptKey(string key)

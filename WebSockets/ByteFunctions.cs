@@ -28,5 +28,15 @@ namespace WebSockets
             b.CopyTo(_b, 0);
             return _b[0];
         }
+
+        static public bool IsNull(this object b)
+        {
+            return b == null;
+        }
+
+        static public bool IsNotNull(this object b)
+        {
+            return !b.IsNull();
+        }
     }
 }

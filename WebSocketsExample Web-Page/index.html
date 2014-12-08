@@ -8,7 +8,7 @@
 
         <script type="text/javascript">
 
-            var server = new FancyWebSocket("ws://localhost:9090");
+            var server = new FancyWebSocket("ws://localhost:8000");
 
             server.bind('chat', function (msg) {
                 $('#messages').prepend("<li class='connected'>" + msg.msg + "</li>");

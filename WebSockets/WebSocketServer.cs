@@ -13,10 +13,11 @@ namespace WebSockets
     {
         private TcpListener listener;
 
-        public ConcurrentDictionary<Guid, WebSocketClient> Clients = new ConcurrentDictionary<Guid, WebSocketClient>();
+        public ConcurrentDictionary<Guid, SocketClient> Clients = new ConcurrentDictionary<Guid, SocketClient>();
 
         public Action<string> onLog;
 		public Action<WebSocketClient> onClientJoined;
+        public Action<HttpSocketClient> onHttpRequest;
 
         public int Port;
 
@@ -42,14 +43,45 @@ namespace WebSockets
         {
             lock (Clients)
             {
-                var webSocketClient = new WebSocketClient(listener.EndAcceptTcpClient(res), this);
+                var socketClient = new SocketClient(listener.EndAcceptTcpClient(res), this);
 
-                Clients.TryAdd(Guid.NewGuid(), webSocketClient);
+                //Read first header
+                socketClient.ReadHeader();
 
-                if (this.onClientJoined != null)
-                    this.onClientJoined(webSocketClient);
+                SocketClient protcolClient = null;
 
-                webSocketClient.Init();
+                //Work out correct client
+                switch (socketClient.Protocol)
+                {
+                    case "http":
+                        protcolClient = new HttpSocketClient(socketClient, this);
+                        break;
+                    case "ws":
+                        protcolClient = new WebSocketClient(socketClient, this);
+                        break;
+                }
+
+                //Handshake
+                if (protcolClient.IsNotNull())
+                {
+                    protcolClient.Handshake();
+
+                    Clients.TryAdd(Guid.NewGuid(), protcolClient);
+
+                    switch (protcolClient.Protocol)
+                    {
+                        case "http":
+                            if (this.onHttpRequest != null)
+                                this.onHttpRequest(protcolClient as HttpSocketClient);
+                            break;
+                        case "ws":
+                            if (this.onClientJoined != null)
+                                this.onClientJoined(protcolClient as WebSocketClient);
+                            break;
+                    }
+                    
+                    protcolClient.Start();
+                }
 
                 listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
             }

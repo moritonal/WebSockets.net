@@ -14,7 +14,7 @@ namespace WebSocketsExample
 {
     public partial class Form1 : Form
     {
-        WebSocketServer server = new WebSocketServer(9090);
+        WebSocketServer server = new WebSocketServer(8000);
 
         public Form1()
         {
@@ -44,6 +44,11 @@ namespace WebSocketsExample
                         json.Send("chat", data);
                     };
             };
+
+            server.onHttpRequest = (HttpSocketClient client) =>
+                {
+                    client.Write("Hello, World!");
+                };
 
             server.Init();
         }
