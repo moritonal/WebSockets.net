@@ -106,8 +106,6 @@ namespace WebSockets
             byte[] buffer = new byte[size];
             var num = this.Socket.Receive(buffer, size, SocketFlags.None);
 
-            List<byte> data = new List<byte>();
-
             return buffer.Take(num).ToArray();
         }
 
@@ -320,28 +318,44 @@ namespace WebSockets
         {
             WebSocketMessage msg = new WebSocketMessage();
 
-            msg.Finished = data[0].GetBits()[0];
-            msg.Reserved1 = data[0].GetBits()[1];
-            msg.Reserved2 = data[0].GetBits()[2];
-            msg.Reserved3 = data[0].GetBits()[3];
+            int offset = 0;
 
-            msg.Opcode = data[0].GetBits()[4, 8];
+            msg.Finished = data[offset].GetBits()[0];
+            msg.Reserved1 = data[offset].GetBits()[1];
+            msg.Reserved2 = data[offset].GetBits()[2];
+            msg.Reserved3 = data[offset].GetBits()[3];
 
-            msg.Mask = data[1].GetBits()[0];
-            msg.PayloadLength = data[1].GetBits()[1, 8];
+            msg.Opcode = data[offset].GetBits()[4, 8];
+
+            offset++;
+
+            msg.Mask = data[offset].GetBits()[0];
+            msg.PayloadLength = data[offset].GetBits()[1, 8];
+
+            offset++;
+
+            if (msg.PayloadLength == 126)
+            {
+                var a = data[offset++].GetBits();
+                var b = data[offset++].GetBits();
+
+                short bb = (short)((a.ToByte() << 8) | b.ToByte());
+
+                msg.PayloadLength = bb;
+            }
 
             if (msg.Mask)
             {
                 msg.MaskingKey = new byte[4];
-                msg.MaskingKey[0] = data[2];
-                msg.MaskingKey[1] = data[3];
-                msg.MaskingKey[2] = data[4];
-                msg.MaskingKey[3] = data[5];
+                msg.MaskingKey[0] = data[offset++];
+                msg.MaskingKey[1] = data[offset++];
+                msg.MaskingKey[2] = data[offset++];
+                msg.MaskingKey[3] = data[offset++];
             }
 
             List<byte> payload = new List<byte>();
 
-            for (int i = 6; i < data.Length; i++)
+            for (int i = offset; i < data.Length; i++)
                 payload.Add(data[i]);
 
             /*while (payload.Count < msg.PayloadLength)

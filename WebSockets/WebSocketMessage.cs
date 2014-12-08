@@ -17,7 +17,7 @@ namespace WebSockets
         public bool Reserved3;
         public byte Opcode;
         public bool Mask;
-        public byte PayloadLength;
+        public int PayloadLength;
         public byte[] MaskingKey;
         public List<byte> Data;
 
