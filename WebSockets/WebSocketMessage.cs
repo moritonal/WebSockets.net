@@ -9,7 +9,7 @@ using Newtonsoft.Json.Linq;
 
 namespace WebSockets
 {
-    public struct WebSocketMessage
+    public class WebSocketMessage
     {
         public bool Finished;
         public bool Reserved1;

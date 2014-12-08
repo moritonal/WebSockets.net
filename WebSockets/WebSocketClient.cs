@@ -252,6 +252,10 @@ namespace WebSockets
                                 this.Close();
                                 return;
                             }
+                            else
+                            {
+                                return;
+                            }
                         }
                     }
                     this.BeginRecievePacket();
@@ -304,9 +308,24 @@ namespace WebSockets
             s = new ByteAsBits();
             {
                 s[0] = false; //Mask
-                s[1, 8] = (byte)msg.Length;
+                if (msg.Length > 126)
+                {
+                    s[1, 8] = (byte)255;
+                    data.Add(s.ToByte());
+
+                    var a = new BitArray(new int[] { msg.Length });
+                    var _a = new ByteAsBits(a.ToBools()).Reverse;
+
+                    data.Add(_a[16, 24]);
+                    data.Add(_a[24, 32]);
+                }
+                else
+                {
+                    s[1, 8] = (byte)msg.Length;
+                    data.Add(s.ToByte());
+                }
             }
-            data.Add(s.ToByte());
+            
 
             //Add payload
             data.AddRange(WebSocketClient.Encoder.GetBytes(msg));
@@ -353,25 +372,22 @@ namespace WebSockets
                 msg.MaskingKey[3] = data[offset++];
             }
 
-            List<byte> payload = new List<byte>();
-
-            for (int i = offset; i < data.Length; i++)
-                payload.Add(data[i]);
-
-            /*while (payload.Count < msg.PayloadLength)
-            {
-                byte[] _data = this.Recieve(msg.PayloadLength - payload.Count);
-                Console.Write(SocketClient.Encoder.GetString(_data));
-            }*/
-
             msg.Data = new List<byte>();
 
-            //Parse payload
-            for (int i = 0; i < payload.Count; i++)
-                msg.Data.Add(payload[i]);
+            for (int i = offset; i < data.Length; i++)
+                msg.Data.Add(data[i]);
+
+            if (msg.Data.Count < msg.PayloadLength)
+            {
+                var missingData = this.Recieve(msg.PayloadLength - msg.Data.Count);
+                if (missingData.IsNotNull())
+                    msg.Data.AddRange(missingData);
+                else
+                    return null;
+            }
 
             //De XOR payload
-            for (int i = 0; i < payload.Count; i++)
+            for (int i = 0; i < msg.Data.Count; i++)
                 msg.Data[i] ^= msg.MaskingKey[i % 4];
             
             return msg;
