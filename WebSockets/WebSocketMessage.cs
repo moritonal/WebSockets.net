@@ -33,7 +33,14 @@ namespace WebSockets
         {
             get
             {
-                return JObject.Parse(this.DataAsString);
+                try
+                {
+                    return JObject.Parse(this.DataAsString);
+                }
+                catch
+                {
+                    return null;
+                }
             }
         }
     }

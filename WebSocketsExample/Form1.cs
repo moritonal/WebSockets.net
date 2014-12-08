@@ -69,8 +69,13 @@ namespace WebSocketsExample
 
         private void button1_Click(object sender, EventArgs e)
         {
-            server.Clients.Values.Select(x => x as WebSocketClient).Where(x => x != null).Select(x => new BoundJSONClient(new JSONClient(x))).ToList().ForEach(
-            x =>
+            server.Clients
+                .Values
+                .Select(x => x as WebSocketClient)
+                .Where(x => x != null)
+                .Select(x => new BoundJSONClient(new JSONClient(x)))
+                .ToList()
+                .ForEach(x =>
             {
                 JObject obj = new JObject();
                 obj["msg"] = textBox2.Text;

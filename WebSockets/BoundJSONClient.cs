@@ -18,11 +18,14 @@ namespace WebSockets
 
             this.jSONClient.onMessageRecieved = (JObject obj) =>
                 {
-                    var eventName = (string)obj["event"];
-                    var args = (JObject)obj["data"];
-                    if (this.events.ContainsKey(eventName))
+                    if (obj.IsNotNull())
                     {
-                        this.events[eventName](args);
+                        var eventName = (string)obj["event"];
+                        var args = (JObject)obj["data"];
+                        if (this.events.ContainsKey(eventName))
+                        {
+                            this.events[eventName](args);
+                        }
                     }
                 };
         }

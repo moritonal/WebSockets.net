@@ -105,8 +105,13 @@ namespace WebSockets
         {
             try
             {
-                this.Socket.Send(msg);
-                return true;
+                if (this.Socket.IsNotNull())
+                {
+                    this.Socket.Send(msg);
+                    return true;
+                }
+                else
+                    return false;
             }
             catch (SocketException)
             {
@@ -230,6 +235,14 @@ namespace WebSockets
                     this.BeginRecievePacket();
                 }
                 catch (SocketException)
+                {
+                    return;
+                }
+                catch (NullReferenceException)
+                {
+                    return;
+                }
+                catch (ObjectDisposedException)
                 {
                     return;
                 }

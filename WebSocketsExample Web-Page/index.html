@@ -2,7 +2,7 @@
 <html>
     <head>
         <title>Example Webpage</title>
-	    <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+        <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
 	    <script src="http://jquery-websocket.googlecode.com/files/jquery.websocket-0.0.1.js"></script>
         <script src="ws_events_dispatcher.js"></script>
 
@@ -10,6 +10,21 @@
             .notification
             {
                 background-color: #d0e4fe;
+                overflow: hidden;
+                padding: 10px;
+            }
+            .notification:hover
+            {
+                height:100px;
+            }
+            .notifications
+            {
+                height: 200px;
+                background-color: lightblue;
+                -webkit-transition:width 300ms ease-in-out, height 300ms ease-in-out;
+                -moz-transition:width 300ms ease-in-out, height 300ms ease-in-out;
+                -o-transition:width 300ms ease-in-out, height 300ms ease-in-out;
+                transition:width 300ms ease-in-out, height 300ms ease-in-out;
             }
         </style>
         <script type="text/javascript">
@@ -17,7 +32,7 @@
             var server = new FancyWebSocket("ws://localhost:8000");
 
             server.bind('chat', function (msg) {
-                $('#messages').prepend("<li class='connected'>" + msg.msg + "</li>");
+                $('#messages').append("<li class='connected'>" + msg.msg + "</li>");
             })
             server.bind('open', function () {
                 server.send("login", { name: "Tom" });
@@ -26,8 +41,22 @@
                 console.log("Login Accepted");
             })
             server.bind("notification", function (msg) {
-                $('#notifications').prepend("<span class='notification'>" + msg.msg + "</span>");
+                notify(msg.msg);
             })
+
+            function notify(msg) {
+                var note = $("<div class='notification'>" + msg + "</div>")
+                    .appendTo($('#notifications'));
+
+                note.delay(2000)
+                    .queue(function () {
+                        $(this).stop().fadeTo(500, 0.8, function () {
+                            /*$(this).stop().fadeTo(10000, 0.0, function () {
+                                $(this).remove();
+                            });*/
+                        });
+                    });
+            }
 
 		    function SendTextBox()
             {
@@ -35,7 +64,7 @@
                   'chat',
                   {
                       name: 'Test',
-                      message: $("#textbox").val()
+                      message: $(".textbox").val()
                   }
                 );
 		    }
@@ -46,8 +75,7 @@
 	        <input id="textbox" value="abc" />
 	        <button onclick="SendTextBox()">Send</button>
         </div>
-        <div id="notifications">
-            
-        </div>
+        <div id="messages"></div>
+        <div id="notifications" class="notifications"></div>
     </body>
 </html>
