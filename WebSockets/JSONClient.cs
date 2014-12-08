@@ -22,7 +22,7 @@ namespace WebSockets
                 };
         }
 
-        internal void Send(JObject root)
+        public void Send(JObject root)
         {
             this.client.SendPacket(root.ToString());
         }

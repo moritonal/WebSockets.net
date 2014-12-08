@@ -6,6 +6,12 @@
 	    <script src="http://jquery-websocket.googlecode.com/files/jquery.websocket-0.0.1.js"></script>
         <script src="ws_events_dispatcher.js"></script>
 
+        <style>
+            .notification
+            {
+                background-color: #d0e4fe;
+            }
+        </style>
         <script type="text/javascript">
 
             var server = new FancyWebSocket("ws://localhost:8000");
@@ -14,7 +20,13 @@
                 $('#messages').prepend("<li class='connected'>" + msg.msg + "</li>");
             })
             server.bind('open', function () {
-                SendTextBox();
+                server.send("login", { name: "Tom" });
+            })
+            server.bind("loginAccepted", function () {
+                console.log("Login Accepted");
+            })
+            server.bind("notification", function (msg) {
+                $('#notifications').prepend("<span class='notification'>" + msg.msg + "</span>");
             })
 
 		    function SendTextBox()
@@ -30,8 +42,12 @@
 	    </script>
     </head>
     <body>
-	    <input id="textbox" value="abc" />
-	    <button onclick="SendTextBox()">Send</button>
-        <span id="messages"></span>
+        <div>
+	        <input id="textbox" value="abc" />
+	        <button onclick="SendTextBox()">Send</button>
+        </div>
+        <div id="notifications">
+            
+        </div>
     </body>
 </html>

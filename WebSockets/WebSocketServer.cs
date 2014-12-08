@@ -54,10 +54,10 @@ namespace WebSockets
                 switch (socketClient.Protocol)
                 {
                     case "http":
-                        protcolClient = new HttpSocketClient(socketClient, this);
+                        protcolClient = new HttpSocketClient(socketClient, this) { handshake = socketClient.handshake };
                         break;
                     case "ws":
-                        protcolClient = new WebSocketClient(socketClient, this);
+                        protcolClient = new WebSocketClient(socketClient, this) { handshake = socketClient.handshake };
                         break;
                 }
 
@@ -73,6 +73,7 @@ namespace WebSockets
                         case "http":
                             if (this.onHttpRequest != null)
                                 this.onHttpRequest(protcolClient as HttpSocketClient);
+                            protcolClient.Close();
                             break;
                         case "ws":
                             if (this.onClientJoined != null)

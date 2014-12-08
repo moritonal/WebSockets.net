@@ -42,8 +42,20 @@ namespace WebSockets
         public void Send(string p, JObject a)
         {
             JObject root = new JObject();
+
             root["event"] = p;
             root["data"] = a;
+
+            this.jSONClient.Send(root);
+        }
+
+        public void Send(string p)
+        {
+            JObject root = new JObject();
+
+            root["event"] = p;
+            root["data"] = new JObject();
+
             this.jSONClient.Send(root);
         }
     }

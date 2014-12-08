@@ -82,6 +82,10 @@
     <None Include="App.config" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\HttpHelper\HttpHelper.csproj">
+      <Project>{080448b6-2b64-4723-8899-4ce2dd55f2ff}</Project>
+      <Name>HttpHelper</Name>
+    </ProjectReference>
     <ProjectReference Include="..\WebSockets\WebSockets.csproj">
       <Project>{3d75fa42-d8c6-4354-95fa-3245eadced2c}</Project>
       <Name>WebSockets</Name>

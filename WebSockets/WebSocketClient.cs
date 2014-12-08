@@ -21,17 +21,20 @@ namespace WebSockets
 
         public WebSocketHandshake(string str)
         {
-            var _headers = str.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).ToList().Select(x => x.Split(':'));
-            var _getHeader = _headers.Where(x => x[0].StartsWith("GET"));
-            var getHeader = _getHeader.FirstOrDefault().First().Split(' ');
-
-            method = getHeader[0];
-            request = getHeader[1];
-            protocol = getHeader[2];
-
-            foreach (var header in _headers.Where(x => x.Count() > 1))
+            if (str != "")
             {
-                headers[header[0].Trim()] = header[1].Trim();
+                var _headers = str.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).ToList().Select(x => x.Split(':'));
+                var _getHeader = _headers.Where(x => x[0].StartsWith("GET"));
+                var getHeader = _getHeader.FirstOrDefault().First().Split(' ');
+
+                method = getHeader[0];
+                request = getHeader[1];
+                protocol = getHeader[2];
+
+                foreach (var header in _headers.Where(x => x.Count() > 1))
+                {
+                    headers[header[0].Trim().ToLower()] = String.Join(":", header.Skip(1).ToArray()).Trim();
+                }
             }
         }
 
@@ -40,7 +43,7 @@ namespace WebSockets
             get
             {
                 if (this.headers.ContainsKey(key))
-                    return this.headers[key].ToLower();
+                    return this.headers[key];
                 else
                     return null;
             }
@@ -51,7 +54,7 @@ namespace WebSockets
     {
         public TcpClient tcpClient;
         public WebSocketServer Parent;
-        protected WebSocketHandshake handshake;
+        public WebSocketHandshake handshake;
 
         public Socket Socket
         {
@@ -71,12 +74,18 @@ namespace WebSockets
         {
             this.tcpClient.Close();
         }
+
         public static Encoding Encoder
         {
             get
             {
                 return Encoding.UTF8;
             }
+        }
+
+        public void Close()
+        {
+            this.Socket.Close();
         }
 
         public byte[] Recieve()
@@ -107,7 +116,9 @@ namespace WebSockets
 
         public bool Write(string str)
         {
-            return this.Write(SocketClient.Encoder.GetBytes(str));
+            if (str != null)
+                return this.Write(SocketClient.Encoder.GetBytes(str));
+            return false;
         }
 
         public string Protocol
@@ -117,11 +128,11 @@ namespace WebSockets
                 var connectionMode = handshake["connection"];
                 if (connectionMode.IsNotNull())
                 {
-                    if (connectionMode == "keep-alive")
+                    if (connectionMode.ToLower() == "keep-alive")
                     {
                         return "http";
                     }
-                    else if (connectionMode == "upgrade")
+                    else if (connectionMode.ToLower() == "upgrade")
                     {
                         var upgradeMode = handshake["upgrade"];
                         if (upgradeMode.IsNotNull() && upgradeMode.ToLower() == "websocket")
@@ -143,7 +154,10 @@ namespace WebSockets
         public void ReadHeader()
         {
             var buffer = this.Recieve();
-            handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(buffer));
+            if (buffer.Length > 0)
+            {
+                handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(buffer));
+            }
         }
 
         public virtual void Handshake()
@@ -169,6 +183,7 @@ namespace WebSockets
     public class WebSocketClient : SocketClient
     {
         static private string guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
+
         static SHA1 sha1 = SHA1CryptoServiceProvider.Create();
         
         public Action<WebSocketMessage> onMessageRecieved = null;
@@ -190,7 +205,7 @@ namespace WebSockets
                          + "Sec-WebSocket-Accept: " + this.AcceptKey(key) + Environment.NewLine + Environment.NewLine;
 
             //Finish handshake
-            this.Write(WebSocketClient.Encoder.GetBytes(response));
+            this.Write(response);
 
             base.Handshake();
         }
@@ -230,7 +245,7 @@ namespace WebSockets
 
         private byte[] ComputeHash(string str)
         {
-            return sha1.ComputeHash(System.Text.Encoding.ASCII.GetBytes(str));
+            return sha1.ComputeHash(SocketClient.Encoder.GetBytes(str));
         }
 
         public bool SendPacket(string msg)

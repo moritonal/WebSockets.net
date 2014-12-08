@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json.Linq;
+﻿using HttpHelper;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -35,11 +36,19 @@ namespace WebSocketsExample
             {
                 var json = new BoundJSONClient(new JSONClient(client));
 
-                json["chat"] = (JObject obj) =>
+                Dictionary<string, string> parameters = new Dictionary<string, string>();
+
+                json["login"] = x =>
+                    {
+                        parameters["name"] = (string)x["name"];
+                        json.Send("loginAccepted");
+                    };
+
+                json["chat"] = x =>
                     {
                         JObject data = new JObject();
 
-                        data["msg"] = (string)obj["message"];
+                        data["msg"] = parameters["name"] + ": " + (string)x["message"];
 
                         json.Send("chat", data);
                     };
@@ -47,11 +56,26 @@ namespace WebSocketsExample
 
             server.onHttpRequest = (HttpSocketClient client) =>
                 {
-                    client.Write("Hello, World!");
+                    var r = client.handshake.request;
+
+                    r =  r == "/" ? "\\index.html" : r;
+                    r = r.Replace('/', '\\');
+
+                    client.Write(HttpServer.ServeHttpPage(Environment.CurrentDirectory + "\\..\\..\\..\\WebSocketsExample Web-Page" + r));
                 };
 
             server.Init();
         }
 
+        private void button1_Click(object sender, EventArgs e)
+        {
+            server.Clients.Values.Select(x => x as WebSocketClient).Where(x => x != null).Select(x => new BoundJSONClient(new JSONClient(x))).ToList().ForEach(
+            x =>
+            {
+                JObject obj = new JObject();
+                obj["msg"] = textBox2.Text;
+                x.Send("notification", obj);
+            });
+        }
     }
 }
