@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Newtonsoft.Json.Linq;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Data;
@@ -32,23 +33,20 @@ namespace WebSocketsExample
 
             server.onClientJoined = (WebSocketClient client) =>
             {
-                client.onMessageRecieved = (WebSocketMessage msg) =>
-                {
-                    client.SendPacket(String.Join("", msg.DataAsString));
-                };
+                var json = new BoundJSONClient(new JSONClient(client));
+
+                json["chat"] = (JObject obj) =>
+                    {
+                        JObject data = new JObject();
+
+                        data["msg"] = (string)obj["message"];
+
+                        json.Send("chat", data);
+                    };
             };
 
             server.Init();
-
-            Timer timer = new Timer();
-            timer.Tick += timer_Tick;
-            timer.Interval = 1000;
-            timer.Start();
         }
 
-        void timer_Tick(object sender, EventArgs e)
-        {
-            this.server.Clients.Values.ToList().ForEach(x => x.SendPacket(DateTime.Now.ToLongTimeString()));
-        }
     }
 }

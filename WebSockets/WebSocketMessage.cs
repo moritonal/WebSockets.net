@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Xml.Linq;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace WebSockets
 {
@@ -23,6 +26,14 @@ namespace WebSockets
             get
             {
                 return WebSocketClient.Encoder.GetString(this.Data.ToArray());
+            }
+        }
+
+        public JObject DataAsJson
+        {
+            get
+            {
+                return JObject.Parse(this.DataAsString);
             }
         }
     }

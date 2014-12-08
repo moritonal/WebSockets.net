@@ -1,49 +1,37 @@
 <!DOCTYPE html>
 <html>
-<head>
-	<script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
-	<script src="http://jquery-websocket.googlecode.com/files/jquery.websocket-0.0.1.js"></script>
-	<script type="text/javascript">
-		var webSocket = "";
-		
-		function SendTextBox()
-		{
-			webSocket.send($("#textbox").val());
-		}
-		function WebSocketTest()
-		{
-			if (webSocket == "")
-			{
-				webSocket = new WebSocket("ws://localhost:9090");
-				
-				webSocket.onopen = function()
-				{
-					console.log("Connection opened");
-					SendTextBox();
-				};
-				webSocket.onmessage = function (evt) 
-				{
-					console.log(evt.data);
-				};
-				webSocket.onclose = function()
-				{
-					console.log("Connection closed");
-				};
-			}
-			else
-			{
-				SendTextBox();
-			}
-		}
-		
-		$(document).ready(function()
-		{
-			WebSocketTest()
-		});
-	</script>
-</head>
-<body>
-	<input id="textbox" value="abc" />
-	<button onclick="WebSocketTest()">Send</button>
-</body>
+    <head>
+        <title>Example Webpage</title>
+	    <script src="http://code.jquery.com/jquery-1.9.1.min.js"></script>
+	    <script src="http://jquery-websocket.googlecode.com/files/jquery.websocket-0.0.1.js"></script>
+        <script src="ws_events_dispatcher.js"></script>
+
+        <script type="text/javascript">
+
+            var server = new FancyWebSocket("ws://localhost:9090");
+
+            server.bind('chat', function (msg) {
+                $('#messages').prepend("<li class='connected'>" + msg.msg + "</li>");
+            })
+            server.bind('open', function () {
+                SendTextBox();
+            })
+
+		    function SendTextBox()
+            {
+		        server.send(
+                  'chat',
+                  {
+                      name: 'Test',
+                      message: $("#textbox").val()
+                  }
+                );
+		    }
+	    </script>
+    </head>
+    <body>
+	    <input id="textbox" value="abc" />
+	    <button onclick="SendTextBox()">Send</button>
+        <span id="messages"></span>
+    </body>
 </html>
