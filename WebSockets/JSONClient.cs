@@ -26,5 +26,17 @@ namespace WebSockets
         {
             this.client.SendPacket(root.ToString());
         }
+
+        public Action onSocketClosed
+        {
+            get
+            {
+                return client.onSocketClosed;
+            }
+            set
+            {
+                client.onSocketClosed = value;
+            }
+        }
     }
 }

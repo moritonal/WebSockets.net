@@ -56,11 +56,17 @@ namespace WebSockets
         public WebSocketServer Parent;
         public WebSocketHandshake handshake;
 
+        public Action onSocketClosed = null;
+
         public Socket Socket
         {
             get
             {
                 return this.tcpClient.Client;
+            }
+            set
+            {
+                this.tcpClient.Client = value;
             }
         }
 
@@ -85,20 +91,24 @@ namespace WebSockets
 
         public void Close()
         {
-            this.Socket.Close();
+            if (this.onSocketClosed.IsNotNull())
+                this.onSocketClosed();
+
+            if (this.Socket.IsNotNull())
+            {
+                this.Socket.Close();
+                this.Socket = null;
+            }
         }
 
-        public byte[] Recieve()
+        public byte[] Recieve(int size = 2048)
         {
-            byte[] buffer = new byte[2048];
-            var num = this.Socket.Receive(buffer);
+            byte[] buffer = new byte[size];
+            var num = this.Socket.Receive(buffer, size, SocketFlags.None);
 
             List<byte> data = new List<byte>();
 
-            for (int i = 0; i < num; i++)
-                data.Add(buffer[i]);
-
-            return data.ToArray();
+            return buffer.Take(num).ToArray();
         }
 
         public bool Write(byte[] msg)
@@ -130,23 +140,25 @@ namespace WebSockets
         {
             get
             {
-                var connectionMode = handshake["connection"];
-                if (connectionMode.IsNotNull())
+                if (handshake.IsNotNull())
                 {
-                    if (connectionMode.ToLower() == "keep-alive")
+                    var connectionMode = handshake["connection"];
+                    if (connectionMode.IsNotNull())
                     {
-                        return "http";
-                    }
-                    else if (connectionMode.ToLower() == "upgrade")
-                    {
-                        var upgradeMode = handshake["upgrade"];
-                        if (upgradeMode.IsNotNull() && upgradeMode.ToLower() == "websocket")
+                        if (connectionMode.ToLower() == "keep-alive")
                         {
-                            return "ws";
+                            return "http";
+                        }
+                        else if (connectionMode.ToLower() == "upgrade")
+                        {
+                            var upgradeMode = handshake["upgrade"];
+                            if (upgradeMode.IsNotNull() && upgradeMode.ToLower() == "websocket")
+                            {
+                                return "ws";
+                            }
                         }
                     }
                 }
-
                 return null;
             }
         }
@@ -192,6 +204,7 @@ namespace WebSockets
         static SHA1 sha1 = SHA1CryptoServiceProvider.Create();
         
         public Action<WebSocketMessage> onMessageRecieved = null;
+
         private byte[] globalBuffer = new byte[2048];
 
         public WebSocketClient(TcpClient client, WebSocketServer server)
@@ -230,20 +243,35 @@ namespace WebSockets
                     if (amount > 0)
                     {
                         if (onMessageRecieved != null)
-                            this.onMessageRecieved(ProcessPacket(this.globalBuffer.Take(amount).ToArray()));
+                        {
+                            var msg = ProcessPacket(this.globalBuffer.Take(amount).ToArray());
+                            if (msg.Opcode == 1)
+                            {
+                                this.onMessageRecieved(msg);
+                            }
+                            else if (msg.Opcode == 8)
+                            {
+                                this.Close();
+                                return;
+                            }
+                        }
                     }
                     this.BeginRecievePacket();
                 }
                 catch (SocketException)
                 {
+                    if (this.onSocketClosed.IsNotNull())
+                        this.onSocketClosed();
                     return;
                 }
                 catch (NullReferenceException)
                 {
+                    this.Close();
                     return;
                 }
                 catch (ObjectDisposedException)
                 {
+                    this.Close();
                     return;
                 }
             }, null);
@@ -311,14 +339,25 @@ namespace WebSockets
                 msg.MaskingKey[3] = data[5];
             }
 
+            List<byte> payload = new List<byte>();
+
+            for (int i = 6; i < data.Length; i++)
+                payload.Add(data[i]);
+
+            /*while (payload.Count < msg.PayloadLength)
+            {
+                byte[] _data = this.Recieve(msg.PayloadLength - payload.Count);
+                Console.Write(SocketClient.Encoder.GetString(_data));
+            }*/
+
             msg.Data = new List<byte>();
 
             //Parse payload
-            for (int i = 0; i < msg.PayloadLength; i++)
-                msg.Data.Add(data[6 + i]);
+            for (int i = 0; i < payload.Count; i++)
+                msg.Data.Add(payload[i]);
 
             //De XOR payload
-            for (int i = 0; i < msg.PayloadLength; i++)
+            for (int i = 0; i < payload.Count; i++)
                 msg.Data[i] ^= msg.MaskingKey[i % 4];
             
             return msg;

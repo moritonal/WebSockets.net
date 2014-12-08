@@ -15,7 +15,7 @@
             }
             .notification:hover
             {
-                height:100px;
+                opacity: 1;
             }
             .notifications
             {
@@ -28,46 +28,56 @@
             }
         </style>
         <script type="text/javascript">
-
-            var server = new FancyWebSocket("ws://localhost:8000");
-
-            server.bind('chat', function (msg) {
-                $('#messages').append("<li class='connected'>" + msg.msg + "</li>");
-            })
-            server.bind('open', function () {
-                server.send("login", { name: "Tom" });
-            })
-            server.bind("loginAccepted", function () {
-                console.log("Login Accepted");
-            })
-            server.bind("notification", function (msg) {
-                notify(msg.msg);
-            })
-
-            function notify(msg) {
-                var note = $("<div class='notification'>" + msg + "</div>")
-                    .appendTo($('#notifications'));
-
-                note.delay(2000)
-                    .queue(function () {
-                        $(this).stop().fadeTo(500, 0.8, function () {
-                            /*$(this).stop().fadeTo(10000, 0.0, function () {
-                                $(this).remove();
-                            });*/
-                        });
-                    });
-            }
-
-		    function SendTextBox()
+            try 
             {
-		        server.send(
-                  'chat',
-                  {
-                      name: 'Test',
-                      message: $(".textbox").val()
-                  }
-                );
-		    }
+                var server = new FancyWebSocket("ws://localhost:8000");
+
+                server.bind('chat', function (msg) {
+                    $('#messages').append("<li class='connected'>" + msg.msg + "</li>");
+                })
+                server.bind('open', function () {
+                    notify("Connected");
+                    server.send("login", { name: "Tom" });
+                })
+                server.bind("loginAccepted", function () {
+                    notify("Logged in");
+                })
+                server.bind("notification", function (msg) {
+                    notify(msg.msg);
+                })
+
+                function notify(msg) {
+                    var note = $("<div class='notification'>" + msg + "</div>")
+                        .appendTo($('#notifications'));
+
+                    note.delay(2000)
+                        .queue(function () {
+                            $(this).stop().fadeTo(500, 0.5, function () {
+                                $(this).stop();
+                            });
+                        });
+                }
+                
+                $(document).ready(function () {
+                    notify("Startup");
+                });
+
+                function SendTextBox()
+                {
+                    server.send(
+                      'chat',
+                      {
+                          name: 'Test',
+                          message: $(".textbox").val()
+                      }
+                    );
+                }
+            }
+            catch (err)
+            {
+                document.title = err.message;
+                notify(err.message);
+            }
 	    </script>
     </head>
     <body>

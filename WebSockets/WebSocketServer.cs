@@ -66,7 +66,14 @@ namespace WebSockets
                 {
                     protcolClient.Handshake();
 
-                    Clients.TryAdd(Guid.NewGuid(), protcolClient);
+                    var g = Guid.NewGuid();
+                    Clients.TryAdd(g, protcolClient);
+
+                    protcolClient.onSocketClosed = () =>
+                    {
+                        SocketClient c;
+                        this.Clients.TryRemove(g, out c);
+                    };
 
                     switch (protcolClient.Protocol)
                     {
@@ -80,7 +87,7 @@ namespace WebSockets
                                 this.onClientJoined(protcolClient as WebSocketClient);
                             break;
                     }
-                    
+
                     protcolClient.Start();
                 }
 

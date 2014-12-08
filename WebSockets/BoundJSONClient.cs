@@ -61,5 +61,17 @@ namespace WebSockets
 
             this.jSONClient.Send(root);
         }
+
+        public Action onSocketClosed
+        {
+            get
+            {
+                return jSONClient.onSocketClosed;
+            }
+            set
+            {
+                jSONClient.onSocketClosed = value;
+            }
+        }
     }
 }
