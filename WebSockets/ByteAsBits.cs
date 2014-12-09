@@ -90,5 +90,14 @@ namespace WebSockets
         {
             return this.Reverse.BitArray.ToByte();
         }
+
+        public override string ToString()
+        {
+            return String.Join(" ", this.data
+                .Select(x => x ? "1" : "0")
+                .Select((x, index) => new { x, index })
+                .GroupBy(x => x.index / 4)
+                .Select(x => String.Join("", x.Select(xx => xx.x).ToArray())));
+        }
     }
 }

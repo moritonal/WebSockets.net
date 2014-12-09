@@ -28,7 +28,7 @@ namespace WebSocketsExample
             {
                 this.textBox1.Invoke(new Action(() =>
                 {
-                    this.textBox1.AppendText(str + Environment.NewLine);
+                    this.textBox1.Text += (str.Length > 250 ? str.Substring(0, 250) : str) + Environment.NewLine;
                 }));
             };
 

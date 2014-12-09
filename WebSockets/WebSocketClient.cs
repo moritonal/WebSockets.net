@@ -101,10 +101,15 @@ namespace WebSockets
             }
         }
 
-        public byte[] Recieve(int size = 2048)
+        public byte[] Recieve(long size = 2048)
         {
+            if ((int)size != size)
+            {
+                return null;
+            }
+
             byte[] buffer = new byte[size];
-            var num = this.Socket.Receive(buffer, size, SocketFlags.None);
+            var num = this.Socket.Receive(buffer, (int)size, SocketFlags.None);
 
             return buffer.Take(num).ToArray();
         }
@@ -249,11 +254,13 @@ namespace WebSockets
                             }
                             else if (msg.Opcode == 8)
                             {
+                                this.Parent.Log("Closed Connection");
                                 this.Close();
                                 return;
                             }
                             else
                             {
+                                this.Parent.Log("Unknown protocol");
                                 return;
                             }
                         }
@@ -262,17 +269,19 @@ namespace WebSockets
                 }
                 catch (SocketException)
                 {
-                    if (this.onSocketClosed.IsNotNull())
-                        this.onSocketClosed();
+                    this.Parent.Log("Crash");
+                    this.Close();
                     return;
                 }
                 catch (NullReferenceException)
                 {
+                    this.Parent.Log("Crash");
                     this.Close();
                     return;
                 }
                 catch (ObjectDisposedException)
                 {
+                    this.Parent.Log("Crash");
                     this.Close();
                     return;
                 }
@@ -308,16 +317,42 @@ namespace WebSockets
             s = new ByteAsBits();
             {
                 s[0] = false; //Mask
-                if (msg.Length > 126)
+
+                if (msg.Length > UInt16.MaxValue)
                 {
+                    //UNTESTED
                     s[1, 8] = (byte)255;
+
                     data.Add(s.ToByte());
 
-                    var a = new BitArray(new int[] { msg.Length });
-                    var _a = new ByteAsBits(a.ToBools()).Reverse;
+                    var __a = new ByteAsBits(new BitArray(new int[] { msg.Length }).ToBools()).Reverse;
 
-                    data.Add(_a[16, 24]);
-                    data.Add(_a[24, 32]);
+                    var b = __a[0, 8];
+                    var c = __a[8, 16];
+                    var d = __a[16, 24];
+                    var e = __a[24, 32];
+
+                    data.Add(b.GetBits().ToByte());
+                    data.Add(c.GetBits().ToByte());
+                    data.Add(d.GetBits().ToByte());
+                    data.Add(e.GetBits().ToByte());
+
+                }
+                else if (msg.Length > 126)
+                {
+                    s[1, 8] = (byte)254;
+
+                    data.Add(s.ToByte());
+
+                    var __a = new ByteAsBits(new BitArray(new int[] { msg.Length }).ToBools()).Reverse;
+
+                    var b = __a[0, 8];
+                    var c = __a[8, 16];
+                    var d = __a[16, 24];
+                    var e = __a[24, 32];
+
+                    data.Add(d.GetBits().ToByte());
+                    data.Add(e.GetBits().ToByte());
                 }
                 else
                 {
@@ -325,7 +360,6 @@ namespace WebSockets
                     data.Add(s.ToByte());
                 }
             }
-            
 
             //Add payload
             data.AddRange(WebSocketClient.Encoder.GetBytes(msg));
@@ -358,9 +392,31 @@ namespace WebSockets
                 var a = data[offset++].GetBits();
                 var b = data[offset++].GetBits();
 
-                short bb = (short)((a.ToByte() << 8) | b.ToByte());
+                ushort bb = (ushort)((a.ToByte() << 8) | b.ToByte());
 
                 msg.PayloadLength = bb;
+            }
+            else if (msg.PayloadLength == 127)
+            {
+                var a = data[offset++].GetBits();
+                var b = data[offset++].GetBits();
+                var c = data[offset++].GetBits();
+                var d = data[offset++].GetBits();
+                var e = data[offset++].GetBits();
+                var f = data[offset++].GetBits();
+                var g = data[offset++].GetBits();
+                var h = data[offset++].GetBits();
+
+                ulong cc = (ulong)(
+                    (a.ToByte() << 56)|
+                    (b.ToByte() << 48)|
+                    (c.ToByte() << 40)|
+                    (d.ToByte() << 32)|
+                    (e.ToByte() << 24)|
+                    (f.ToByte() << 16)|
+                    (g.ToByte() << 8) | 
+                    h.ToByte());
+                msg.PayloadLength = (long)cc;
             }
 
             if (msg.Mask)

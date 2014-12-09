@@ -71,6 +71,10 @@ var FancyWebSocket = function (url)
     {
         dispatch('open', null)
     }
+    conn.onerror = function(evt)
+    {
+        dispatch('error', evt);
+    }
 
     var dispatch = function (event_name, message)
     {
