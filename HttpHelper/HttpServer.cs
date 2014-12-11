@@ -11,9 +11,16 @@ namespace HttpHelper
     {
         public static string ServeHttpPage(string file)
         {
+            StringBuilder str = new StringBuilder();
+
+            str.AppendLine("HTTP/1.1 200 OK");
+            str.AppendLine("Content-Type: text/html; charset=UTF-8");
+            str.AppendLine("Connection: close");
+            str.AppendLine("");
             if (File.Exists(file))
-                return File.ReadAllText(file);
-            return null;
+                str.Append(File.ReadAllText(file));
+
+            return str.ToString();
         }
     }
 }

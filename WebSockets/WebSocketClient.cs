@@ -242,23 +242,27 @@ namespace WebSockets
             processThread.Start();
         }
 
+        int count = 0;
+        int processed = 0;
+        
         public void BeginRecieveing()
         {
             while (true)
             {
-                byte[] data = new byte[2048];
+                byte[] data = new byte[4096];
                 SocketError err = SocketError.Success;
                 int recieved = this.Socket.Receive(data, 0, 2048, SocketFlags.None, out err);
                 if (err == SocketError.Success)
                 {
                     for (int i = 0; i < recieved; i++)
-                    {
                         incomingData.Enqueue(data[i]);
-                    }
+                    count += recieved;
                 }
                 else
                 {
-                    throw new Exception();
+                    this.Close();
+                    this.Parent.Log("Socket Closed (" + err.ToString() + ")" + ": " + count + ":" + processed);
+                    return;
                 }
             }
         }
@@ -267,9 +271,9 @@ namespace WebSockets
         {
             while (true)
             {
-                try
+                if (onMessageRecieved != null)
                 {
-                    if (onMessageRecieved != null)
+                    try
                     {
                         var msg = ProcessPacket();
                         if (msg.Opcode == 1)
@@ -287,24 +291,11 @@ namespace WebSockets
                             throw new Exception();
                         }
                     }
-                }
-                catch (SocketException)
-                {
-                    this.Parent.Log("Crash");
-                    this.Close();
-                    return;
-                }
-                catch (NullReferenceException)
-                {
-                    this.Parent.Log("Crash");
-                    this.Close();
-                    return;
-                }
-                catch (ObjectDisposedException)
-                {
-                    this.Parent.Log("Crash");
-                    this.Close();
-                    return;
+                    catch (Exception e)
+                    {
+                        this.Parent.Log(e.Message);
+                        return;
+                    }
                 }
             }
         }
@@ -391,15 +382,18 @@ namespace WebSockets
         public byte GetByte()
         {
             byte data = 0;
-            
-            if (this.incomingData.TryDequeue(out data))
+
+            while (!this.incomingData.TryDequeue(out data))
             {
-                return data;
+                Thread.Yield();
+
+                if (this.Socket.IsNull())
+                    throw new Exception();
             }
-            else
-            {
-                return 0;
-            }
+
+            processed++;
+
+            return data;
         }
 
         public WebSocketMessage ProcessPacket()
