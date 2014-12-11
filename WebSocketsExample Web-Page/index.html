@@ -29,7 +29,7 @@
         <script type="text/javascript">
             try 
             {
-                var server = new FancyWebSocket("ws://127.0.0.1:8000");
+                var server = new FancyWebSocket("ws://localhost:8000");
 
                 server.bind('chat', function (msg) {
                     notify(msg.msg);
@@ -37,6 +37,13 @@
                 server.bind('open', function () {
                     notify("Connected");
                     server.send("login", { name: "Tom" });
+					
+					window.setInterval(function(){
+						var str = "";
+						for (var i=0;i<10;i++)
+							str += "a";
+						server.send("chat", {name: "Test", message: str});
+					}, 10);
                 })
                 server.bind("loginAccepted", function () {
                     notify("Logged in");

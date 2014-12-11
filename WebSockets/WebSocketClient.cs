@@ -91,7 +91,7 @@ namespace WebSockets
             }
         }
 
-        public void Close()
+        public virtual void Close()
         {
             if (this.onSocketClosed.IsNotNull())
                 this.onSocketClosed();
@@ -118,19 +118,30 @@ namespace WebSockets
 
         public bool Write(byte[] msg)
         {
-            try
+            lock (this)
             {
-                if (this.Socket.IsNotNull())
+                try
                 {
-                    this.Socket.Send(msg);
-                    return true;
+                    if (this.Socket.IsNotNull())
+                    {
+                        SocketError err = SocketError.Success;
+                        this.Socket.Send(msg, 0, msg.Length, SocketFlags.None, out err);
+                        if (err == SocketError.Success)
+                        {
+                            return true;
+                        }
+                        else
+                        {
+                            throw new SocketException();
+                        }
+                    }
+                    else
+                        return false;
                 }
-                else
+                catch (SocketException)
+                {
                     return false;
-            }
-            catch (SocketException)
-            {
-                return false;
+                }
             }
         }
 
@@ -148,19 +159,16 @@ namespace WebSockets
                 if (handshake.IsNotNull())
                 {
                     var connectionMode = handshake["connection"];
+                    var upgradeMode = handshake["upgrade"];
                     if (connectionMode.IsNotNull())
                     {
-                        if (connectionMode.ToLower() == "keep-alive")
+                        if (upgradeMode.IsNotNull() && upgradeMode.IsNotNull() && upgradeMode.ToLower() == "websocket")
+                        {
+                            return "ws";
+                        }
+                        else if (connectionMode.ToLower().Split(',').Contains("keep-alive"))
                         {
                             return "http";
-                        }
-                        else if (connectionMode.ToLower() == "upgrade")
-                        {
-                            var upgradeMode = handshake["upgrade"];
-                            if (upgradeMode.IsNotNull() && upgradeMode.ToLower() == "websocket")
-                            {
-                                return "ws";
-                            }
                         }
                     }
                 }
@@ -202,6 +210,39 @@ namespace WebSockets
         }
     }
 
+    public class CounterResetEvent
+    {
+        AutoResetEvent resetEvent = new AutoResetEvent(false);
+        long value = 0;
+
+        public CounterResetEvent()
+        {
+            
+        }
+
+        public void Increment()
+        {
+            Interlocked.Increment(ref value);
+            this.resetEvent.Set();
+        }
+
+        public void Decrement()
+        {
+            while (Interlocked.Read(ref value) <= 0)
+            {
+                resetEvent.WaitOne();
+            }
+
+            Interlocked.Decrement(ref value);
+        }
+
+        public void Break()
+        {
+            value = 1;
+            resetEvent.Set();
+        }
+    }
+
     public class WebSocketClient : SocketClient
     {
         static private string guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
@@ -222,13 +263,15 @@ namespace WebSockets
         {
             var key = handshake["sec-websocket-key"];
 
-            var response = "HTTP/1.1 101 Switching Protocols" + Environment.NewLine
-                         + "Upgrade: websocket" + Environment.NewLine
-                         + "Connection: Upgrade" + Environment.NewLine
-                         + "Sec-WebSocket-Accept: " + this.AcceptKey(key) + Environment.NewLine + Environment.NewLine;
+            StringBuilder response = new StringBuilder();
+            response.AppendLine("HTTP/1.1 101 Switching Protocols");
+            response.AppendLine("Upgrade: websocket");
+            response.AppendLine("Connection: Upgrade");
+            response.AppendLine("Sec-WebSocket-Accept: " + this.AcceptKey(key));
+            response.AppendLine();
 
             //Finish handshake
-            this.Write(response);
+            this.Write(response.ToString());
 
             base.Handshake();
         }
@@ -242,26 +285,37 @@ namespace WebSockets
             processThread.Start();
         }
 
-        int count = 0;
-        int processed = 0;
-        
+        long requests = 0;
+        CounterResetEvent isDataAvaliable = new CounterResetEvent();
+        public AutoResetEvent temp = new AutoResetEvent(false);
+
         public void BeginRecieveing()
         {
             while (true)
             {
-                byte[] data = new byte[4096];
+                byte[] data = new byte[1];
                 SocketError err = SocketError.Success;
-                int recieved = this.Socket.Receive(data, 0, 2048, SocketFlags.None, out err);
-                if (err == SocketError.Success)
+                try
                 {
-                    for (int i = 0; i < recieved; i++)
-                        incomingData.Enqueue(data[i]);
-                    count += recieved;
+                    int recieved = this.Socket.Receive(data, 0, 1, SocketFlags.None, out err);
+                    if (err == SocketError.Success)
+                    {
+                        for (int i = 0; i < recieved; i++)
+                        {
+                            //temp.WaitOne();
+                            incomingData.Enqueue(data[i]);
+                            isDataAvaliable.Increment();
+                        }
+                    }
+                    else
+                    {
+                        throw new Exception("Recieve Failed (" + err.ToString() + ")");
+                    }
                 }
-                else
+                catch (Exception e)
                 {
                     this.Close();
-                    this.Parent.Log("Socket Closed (" + err.ToString() + ")" + ": " + count + ":" + processed);
+                    this.Parent.Log("Exception: " + e.Message);
                     return;
                 }
             }
@@ -276,24 +330,25 @@ namespace WebSockets
                     try
                     {
                         var msg = ProcessPacket();
-                        if (msg.Opcode == 1)
+                        
+                        switch (msg.Opcode)
                         {
-                            this.onMessageRecieved(msg);
-                        }
-                        else if (msg.Opcode == 8)
-                        {
-                            this.Parent.Log("Closed Connection");
-                            this.Close();
-                            return;
-                        }
-                        else
-                        {
-                            throw new Exception();
+                            case 1:
+                                this.onMessageRecieved(msg);
+                                requests++;
+                                break;
+                            case 8:
+                                throw new Exception("Process Failed (Connection Closed)");
+                            case 10:
+                                continue;
+                            default:
+                                throw new Exception("OpCode " + msg.Opcode + " not recognised");
                         }
                     }
                     catch (Exception e)
                     {
-                        this.Parent.Log(e.Message);
+                        this.Parent.Log("Exception: " + e.Message);
+                        this.Close();
                         return;
                     }
                 }
@@ -312,7 +367,7 @@ namespace WebSockets
             return sha1.ComputeHash(SocketClient.Encoder.GetBytes(str));
         }
 
-        public bool SendPacket(string msg)
+        public bool SendPacket(string msg, byte opCode = 1)
         {
             List<byte> data = new List<byte>();
 
@@ -322,7 +377,7 @@ namespace WebSockets
                 s[1] = false;
                 s[2] = false;
                 s[3] = false;
-                s[4, 8] = 1;
+                s[4, 8] = opCode;
             }
             data.Add(s.ToByte());
 
@@ -348,7 +403,6 @@ namespace WebSockets
                     data.Add(c.GetBits().ToByte());
                     data.Add(d.GetBits().ToByte());
                     data.Add(e.GetBits().ToByte());
-
                 }
                 else if (msg.Length > 126)
                 {
@@ -383,17 +437,26 @@ namespace WebSockets
         {
             byte data = 0;
 
-            while (!this.incomingData.TryDequeue(out data))
+            isDataAvaliable.Decrement();
+
+            if (this.Socket.IsNull())
+                throw new Exception("GetByte Exit clean");
+
+            if (this.incomingData.TryDequeue(out data))
             {
-                Thread.Yield();
-
-                if (this.Socket.IsNull())
-                    throw new Exception();
+                return data;
             }
+            else
+            {
+                throw new Exception("Couldn't read from queue");
+            }
+        }
 
-            processed++;
+        public override void Close()
+        {
+            base.Close();
 
-            return data;
+            isDataAvaliable.Break();
         }
 
         public WebSocketMessage ProcessPacket()
@@ -410,7 +473,7 @@ namespace WebSockets
             msg.Reserved3 = data.GetBits()[3];
 
             if (!msg.Finished)
-                throw new Exception();
+                throw new Exception("Message wasn't finished");
 
             msg.Opcode = data.GetBits()[4, 8];
 
@@ -474,7 +537,7 @@ namespace WebSockets
                     return null;
             }*/
 
-            //De XOR payload
+            //DeXOR payload
             for (int i = 0; i < msg.Data.Count; i++)
                 msg.Data[i] ^= msg.MaskingKey[i % 4];
             

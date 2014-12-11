@@ -37,6 +37,13 @@ namespace WebSockets
 			listener.Start();
 
 			listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
+
+            Timer t = new Timer(
+                (object obj) =>
+                {
+                    Clients.Values.Select(x => x as WebSocketClient).Where(x => x.IsNotNull()).ToList().ForEach(x => x.SendPacket("", 9));
+                },
+                null, 0, 1000);
 		}
 
         void TcpClientJoined(IAsyncResult res)

@@ -34,6 +34,8 @@ namespace WebSocketsExample
 
             server.onClientJoined = (WebSocketClient client) =>
             {
+                this.server.Log("WebSocket client joined");
+
                 var json = new BoundJSONClient(new JSONClient(client));
 
                 Dictionary<string, string> parameters = new Dictionary<string, string>();
@@ -67,10 +69,17 @@ namespace WebSocketsExample
                     r =  r == "/" ? "\\index.html" : r;
                     r = r.Replace('/', '\\');
 
+                    this.server.Log("Served " + r);
+
                     client.Write(HttpServer.ServeHttpPage(Environment.CurrentDirectory + "\\..\\..\\..\\WebSocketsExample Web-Page" + r));
                 };
 
             server.Init();
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+            this.server.Clients.Values.ToList().Select(x => x as WebSocketClient).Where(x => x != null).ToList().ForEach(x => x.temp.Set());
         }
     }
 }
