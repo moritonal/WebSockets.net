@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Sockets;
@@ -7,6 +8,7 @@ using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace WebSockets
@@ -208,7 +210,7 @@ namespace WebSockets
         
         public Action<WebSocketMessage> onMessageRecieved = null;
 
-        private byte[] globalBuffer = new byte[2048];
+        ConcurrentQueue<byte> incomingData = new ConcurrentQueue<byte>();
 
         public WebSocketClient(TcpClient client, WebSocketServer server)
             : base(client, server)
@@ -233,39 +235,58 @@ namespace WebSockets
 
         public override void Start()
         {
-            BeginRecievePacket();
+            Thread recieveThread = new Thread(BeginRecieveing);
+            recieveThread.Start();
+
+            Thread processThread = new Thread(ProcessPacketThread);
+            processThread.Start();
         }
 
-        public void BeginRecievePacket()
+        public void BeginRecieveing()
         {
-            this.Socket.BeginReceive(globalBuffer, 0, 2048, SocketFlags.None, (IAsyncResult res) =>
+            while (true)
+            {
+                byte[] data = new byte[2048];
+                SocketError err = SocketError.Success;
+                int recieved = this.Socket.Receive(data, 0, 2048, SocketFlags.None, out err);
+                if (err == SocketError.Success)
+                {
+                    for (int i = 0; i < recieved; i++)
+                    {
+                        incomingData.Enqueue(data[i]);
+                    }
+                }
+                else
+                {
+                    throw new Exception();
+                }
+            }
+        }
+
+        public void ProcessPacketThread()
+        {
+            while (true)
             {
                 try
                 {
-                    int amount = this.Socket.EndReceive(res);
-                    if (amount > 0)
+                    if (onMessageRecieved != null)
                     {
-                        if (onMessageRecieved != null)
+                        var msg = ProcessPacket();
+                        if (msg.Opcode == 1)
                         {
-                            var msg = ProcessPacket(this.globalBuffer.Take(amount).ToArray());
-                            if (msg.Opcode == 1)
-                            {
-                                this.onMessageRecieved(msg);
-                            }
-                            else if (msg.Opcode == 8)
-                            {
-                                this.Parent.Log("Closed Connection");
-                                this.Close();
-                                return;
-                            }
-                            else
-                            {
-                                this.Parent.Log("Unknown protocol");
-                                return;
-                            }
+                            this.onMessageRecieved(msg);
+                        }
+                        else if (msg.Opcode == 8)
+                        {
+                            this.Parent.Log("Closed Connection");
+                            this.Close();
+                            return;
+                        }
+                        else
+                        {
+                            throw new Exception();
                         }
                     }
-                    this.BeginRecievePacket();
                 }
                 catch (SocketException)
                 {
@@ -285,7 +306,7 @@ namespace WebSockets
                     this.Close();
                     return;
                 }
-            }, null);
+            }
         }
 
         private string AcceptKey(string key)
@@ -367,30 +388,47 @@ namespace WebSockets
             return this.Write(data.ToArray());
         }
 
-        public WebSocketMessage ProcessPacket(byte[] data)
+        public byte GetByte()
+        {
+            byte data = 0;
+            
+            if (this.incomingData.TryDequeue(out data))
+            {
+                return data;
+            }
+            else
+            {
+                return 0;
+            }
+        }
+
+        public WebSocketMessage ProcessPacket()
         {
             WebSocketMessage msg = new WebSocketMessage();
 
             int offset = 0;
 
-            msg.Finished = data[offset].GetBits()[0];
-            msg.Reserved1 = data[offset].GetBits()[1];
-            msg.Reserved2 = data[offset].GetBits()[2];
-            msg.Reserved3 = data[offset].GetBits()[3];
+            byte data = this.GetByte();
 
-            msg.Opcode = data[offset].GetBits()[4, 8];
+            msg.Finished = data.GetBits()[0];
+            msg.Reserved1 = data.GetBits()[1];
+            msg.Reserved2 = data.GetBits()[2];
+            msg.Reserved3 = data.GetBits()[3];
 
-            offset++;
+            if (!msg.Finished)
+                throw new Exception();
 
-            msg.Mask = data[offset].GetBits()[0];
-            msg.PayloadLength = data[offset].GetBits()[1, 8];
+            msg.Opcode = data.GetBits()[4, 8];
 
-            offset++;
+            data = this.GetByte();
+
+            msg.Mask = data.GetBits()[0];
+            msg.PayloadLength = data.GetBits()[1, 8];
 
             if (msg.PayloadLength == 126)
             {
-                var a = data[offset++].GetBits();
-                var b = data[offset++].GetBits();
+                var a = this.GetByte().GetBits();
+                var b = this.GetByte().GetBits();
 
                 ushort bb = (ushort)((a.ToByte() << 8) | b.ToByte());
 
@@ -398,14 +436,14 @@ namespace WebSockets
             }
             else if (msg.PayloadLength == 127)
             {
-                var a = data[offset++].GetBits();
-                var b = data[offset++].GetBits();
-                var c = data[offset++].GetBits();
-                var d = data[offset++].GetBits();
-                var e = data[offset++].GetBits();
-                var f = data[offset++].GetBits();
-                var g = data[offset++].GetBits();
-                var h = data[offset++].GetBits();
+                var a = this.GetByte().GetBits();
+                var b = this.GetByte().GetBits();
+                var c = this.GetByte().GetBits();
+                var d = this.GetByte().GetBits();
+                var e = this.GetByte().GetBits();
+                var f = this.GetByte().GetBits();
+                var g = this.GetByte().GetBits();
+                var h = this.GetByte().GetBits();
 
                 ulong cc = (ulong)(
                     (a.ToByte() << 56)|
@@ -422,25 +460,25 @@ namespace WebSockets
             if (msg.Mask)
             {
                 msg.MaskingKey = new byte[4];
-                msg.MaskingKey[0] = data[offset++];
-                msg.MaskingKey[1] = data[offset++];
-                msg.MaskingKey[2] = data[offset++];
-                msg.MaskingKey[3] = data[offset++];
+                msg.MaskingKey[0] = this.GetByte();
+                msg.MaskingKey[1] = this.GetByte();
+                msg.MaskingKey[2] = this.GetByte();
+                msg.MaskingKey[3] = this.GetByte();
             }
 
             msg.Data = new List<byte>();
 
-            for (int i = offset; i < data.Length; i++)
-                msg.Data.Add(data[i]);
+            for (int i = offset; i < msg.PayloadLength; i++)
+                msg.Data.Add(this.GetByte());
 
-            if (msg.Data.Count < msg.PayloadLength)
+            /*if (msg.Data.Count < msg.PayloadLength)
             {
                 var missingData = this.Recieve(msg.PayloadLength - msg.Data.Count);
                 if (missingData.IsNotNull())
                     msg.Data.AddRange(missingData);
                 else
                     return null;
-            }
+            }*/
 
             //De XOR payload
             for (int i = 0; i < msg.Data.Count; i++)

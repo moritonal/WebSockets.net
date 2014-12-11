@@ -42,6 +42,18 @@ namespace WebSockets
             }
         }
 
+        public void Send(string p, params KeyValuePair<string, string>[] args)
+        {
+            JObject a = new JObject();
+
+            foreach (var arg in args)
+            {
+                a.Add(arg.Key, arg.Value);
+            }
+
+            this.Send(p, a);
+        }
+
         public void Send(string p, JObject a)
         {
             JObject root = new JObject();

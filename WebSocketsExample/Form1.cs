@@ -50,8 +50,14 @@ namespace WebSocketsExample
 
                         data["msg"] = parameters["name"] + ": " + (string)x["message"];
 
-                        json.Send("chat", data);
+                        json.Send("chat", data);    
                     };
+                json["keyDown"] = x =>
+                    {
+                        json.Send("keyDown",
+                            new KeyValuePair<string, string>("msg", parameters["name"] + ": " + (string)x["message"]));
+                    };
+
             };
 
             server.onHttpRequest = (HttpSocketClient client) =>
@@ -65,22 +71,6 @@ namespace WebSocketsExample
                 };
 
             server.Init();
-        }
-
-        private void button1_Click(object sender, EventArgs e)
-        {
-            server.Clients
-                .Values
-                .Select(x => x as WebSocketClient)
-                .Where(x => x != null)
-                .Select(x => new BoundJSONClient(new JSONClient(x)))
-                .ToList()
-                .ForEach(x =>
-            {
-                JObject obj = new JObject();
-                obj["msg"] = textBox2.Text;
-                x.Send("notification", obj);
-            });
         }
     }
 }

@@ -50,14 +50,18 @@
                 server.bind("error", function (evt) {
                     notify("Error");
                 })
+				server.bind("keyDown", function(msg){
+					notify(msg.msg);
+				});
+				
                 function notify(msg) {
                     var note = $("<div class='notification'>" + msg + "</div>")
                         .appendTo($('#notifications'));
 
                     note.delay(2000)
                         .queue(function () {
-                            $(this).stop().fadeTo(500, 0.5, function () {
-                                $(this).stop();
+                            $(this).stop().fadeOut(1000,function () {
+                                
                             });
                         });
                 }
@@ -66,6 +70,15 @@
                     notify("Startup");
                 });
 
+				$(document).keypress(function(e) {
+					server.send(
+                      'keyDown',
+                      {
+                          name: 'Test',
+                          message: String.fromCharCode(e.which),
+                      }
+                    );
+				});
                 function SendTextBox()
                 {
                     server.send(
