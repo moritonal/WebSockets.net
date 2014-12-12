@@ -73,61 +73,58 @@ namespace WebSockets
 
         void TcpClientJoined(IAsyncResult res)
         {
-            lock (Clients)
+            var socketClient = new SocketClient(listener.EndAcceptTcpClient(res), this);
+
+            byte[] originalRequest = socketClient.Recieve();
+
+            if (originalRequest.Length != 0)
             {
-                var socketClient = new SocketClient(listener.EndAcceptTcpClient(res), this);
+                socketClient.handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(originalRequest));
 
-                byte[] originalRequest = socketClient.Recieve();
+                SocketClient protcolClient = null;
 
-                if (originalRequest.Length != 0)
+                //Work out correct client
+                switch (socketClient.Protocol)
                 {
-                    socketClient.handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(originalRequest));
-
-                    SocketClient protcolClient = null;
-
-                    //Work out correct client
-                    switch (socketClient.Protocol)
-                    {
-                        case "http":
-                            protcolClient = new HttpSocketClient(socketClient, this) { handshake = socketClient.handshake };
-                            break;
-                        case "ws":
-                            protcolClient = new WebSocketClient(socketClient, this) { handshake = socketClient.handshake };
-                            break;
-                    }
-
-                    //Handshake
-                    if (protcolClient.IsNotNull())
-                    {
-                        protcolClient.PerformHandshake();
-
-                        var g = Guid.NewGuid();
-                        Clients.TryAdd(g, protcolClient);
-
-                        protcolClient.onSocketClosed = () =>
-                        {
-                            SocketClient c;
-                            this.Clients.TryRemove(g, out c);
-                        };
-
-                        switch (protcolClient.Protocol)
-                        {
-                            case "http":
-                                if (this.onHttpRequest != null)
-                                    this.onHttpRequest(protcolClient as HttpSocketClient);
-                                protcolClient.Close();
-                                break;
-                            case "ws":
-                                if (this.onClientJoined != null)
-                                    this.onClientJoined(protcolClient as WebSocketClient);
-                                protcolClient.Start();
-                                break;
-                        }
-                    }
+                    case "http":
+                        protcolClient = new HttpSocketClient(socketClient, this) { handshake = socketClient.handshake };
+                        break;
+                    case "ws":
+                        protcolClient = new WebSocketClient(socketClient, this) { handshake = socketClient.handshake };
+                        break;
                 }
 
-                listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
+                //Handshake
+                if (protcolClient.IsNotNull())
+                {
+                    protcolClient.PerformHandshake();
+
+                    var g = Guid.NewGuid();
+                    Clients.TryAdd(g, protcolClient);
+
+                    protcolClient.onSocketClosed = () =>
+                    {
+                        SocketClient c;
+                        this.Clients.TryRemove(g, out c);
+                    };
+
+                    switch (protcolClient.Protocol)
+                    {
+                        case "http":
+                            if (this.onHttpRequest != null)
+                                this.onHttpRequest(protcolClient as HttpSocketClient);
+                            protcolClient.Close();
+                            break;
+                        case "ws":
+                            if (this.onClientJoined != null)
+                                this.onClientJoined(protcolClient as WebSocketClient);
+                            protcolClient.Start();
+                            break;
+                    }
+                }
             }
+
+            listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
         }
 
 		public void Log(string msg)
