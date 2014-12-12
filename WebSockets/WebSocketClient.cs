@@ -78,11 +78,6 @@ namespace WebSockets
             this.Parent = parent;
         }
 
-        ~SocketClient()
-        {
-            this.tcpClient.Close();
-        }
-
         public static Encoding Encoder
         {
             get
@@ -256,7 +251,10 @@ namespace WebSockets
         public WebSocketClient(TcpClient client, WebSocketServer server)
             : base(client, server)
         {
+            this.Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.KeepAlive, true);
 
+            this.Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReceiveBuffer, 8192);
+            this.Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, 8192);
         }
 
         public override void Handshake()
@@ -287,38 +285,36 @@ namespace WebSockets
 
         long requests = 0;
         CounterResetEvent isDataAvaliable = new CounterResetEvent();
-        public AutoResetEvent temp = new AutoResetEvent(false);
 
+        byte[] buffer = new byte[2048];
+        SocketError recieveErr;
+
+        void RecievedBuffer(IAsyncResult res)
+        {
+            if (this.Socket.IsNotNull())
+            {
+                var recieved = this.Socket.EndReceive(res);
+                if (recieveErr == SocketError.Success)
+                {
+                    for (int i = 0; i < recieved; i++)
+                    {
+                        incomingData.Enqueue(buffer[i]);
+                        isDataAvaliable.Increment();
+                    }
+                }
+                else if (recieveErr != SocketError.WouldBlock)
+                {
+                    throw new Exception("Recieve Failed (" + recieveErr.ToString() + ")");
+                }
+
+                this.BeginRecieveing();
+            }
+        }
+
+        
         public void BeginRecieveing()
         {
-            while (true)
-            {
-                byte[] data = new byte[1];
-                SocketError err = SocketError.Success;
-                try
-                {
-                    int recieved = this.Socket.Receive(data, 0, 1, SocketFlags.None, out err);
-                    if (err == SocketError.Success)
-                    {
-                        for (int i = 0; i < recieved; i++)
-                        {
-                            //temp.WaitOne();
-                            incomingData.Enqueue(data[i]);
-                            isDataAvaliable.Increment();
-                        }
-                    }
-                    else
-                    {
-                        throw new Exception("Recieve Failed (" + err.ToString() + ")");
-                    }
-                }
-                catch (Exception e)
-                {
-                    this.Close();
-                    this.Parent.Log("Exception: " + e.Message);
-                    return;
-                }
-            }
+            this.Socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, out recieveErr, RecievedBuffer, null);
         }
 
         public void ProcessPacketThread()
@@ -527,15 +523,6 @@ namespace WebSockets
 
             for (int i = offset; i < msg.PayloadLength; i++)
                 msg.Data.Add(this.GetByte());
-
-            /*if (msg.Data.Count < msg.PayloadLength)
-            {
-                var missingData = this.Recieve(msg.PayloadLength - msg.Data.Count);
-                if (missingData.IsNotNull())
-                    msg.Data.AddRange(missingData);
-                else
-                    return null;
-            }*/
 
             //DeXOR payload
             for (int i = 0; i < msg.Data.Count; i++)

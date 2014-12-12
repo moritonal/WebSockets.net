@@ -76,10 +76,5 @@ namespace WebSocketsExample
 
             server.Init();
         }
-
-        private void button1_Click(object sender, EventArgs e)
-        {
-            this.server.Clients.Values.ToList().Select(x => x as WebSocketClient).Where(x => x != null).ToList().ForEach(x => x.temp.Set());
-        }
     }
 }

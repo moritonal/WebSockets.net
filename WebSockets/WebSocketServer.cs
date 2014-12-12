@@ -6,6 +6,7 @@ using System.Threading;
 using System.Net;
 using System.Net.Sockets;
 using System.Collections.Concurrent;
+using System.Threading.Tasks;
 
 namespace WebSockets
 {
@@ -33,17 +34,21 @@ namespace WebSockets
 
 		public void Init()
 		{
-			listener = new TcpListener(new IPEndPoint(IPAddress.Any, this.Port));
-			listener.Start();
+            new Task(() =>
+            {
+                listener = new TcpListener(new IPEndPoint(IPAddress.Any, this.Port));
+                listener.Start();
 
-			listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
+                listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
 
-            Timer t = new Timer(
-                (object obj) =>
-                {
-                    Clients.Values.Select(x => x as WebSocketClient).Where(x => x.IsNotNull()).ToList().ForEach(x => x.SendPacket("", 9));
-                },
-                null, 0, 1000);
+                Timer t = new Timer(
+                    (object obj) =>
+                    {
+                        Clients.Values.Select(x => x as WebSocketClient).Where(x => x.IsNotNull()).ToList().ForEach(x => x.SendPacket("", 9));
+                    },
+                    null, 0, 1000);
+
+            }).Start();
 		}
 
         void TcpClientJoined(IAsyncResult res)
