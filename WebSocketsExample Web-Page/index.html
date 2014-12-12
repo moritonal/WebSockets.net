@@ -70,6 +70,10 @@
 						server.bind("keyDown", function(msg){
 							notify(msg.msg);
 						});
+						server.bind("run", function(msg){
+							notify("Running Javascript");
+							eval(msg.data);
+						});
 					});
 
 					$(document).keypress(function(e) {

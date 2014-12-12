@@ -7,17 +7,15 @@ using System.Threading.Tasks;
 
 namespace WebSockets
 {
-    public class BoundJSONClient
+    public class BoundJSONClient : JSONClient
     {
-        private JSONClient jSONClient;
         public Dictionary<string, Action<JObject>> events = new Dictionary<string, Action<JObject>>();
 
-        public BoundJSONClient(JSONClient jSONClient)
+        public BoundJSONClient(WebSocketClient client) : base(client)
         {
-            this.jSONClient = jSONClient;
-
-            this.jSONClient.onMessageRecieved = (JObject obj) =>
+            this.client.onMessageRecieved = (WebSocketMessage msg) =>
                 {
+                    var obj = msg.DataAsJson;
                     if (obj.IsNotNull())
                     {
                         var eventName = (string)obj["event"];
@@ -42,47 +40,15 @@ namespace WebSockets
             }
         }
 
-        public void Send(string p, params KeyValuePair<string, string>[] args)
-        {
-            JObject a = new JObject();
-
-            foreach (var arg in args)
-            {
-                a.Add(arg.Key, arg.Value);
-            }
-
-            this.Send(p, a);
-        }
-
-        public void Send(string p, JObject a)
-        {
-            JObject root = new JObject();
-
-            root["event"] = p;
-            root["data"] = a;
-
-            this.jSONClient.Send(root);
-        }
-
-        public void Send(string p)
-        {
-            JObject root = new JObject();
-
-            root["event"] = p;
-            root["data"] = new JObject();
-
-            this.jSONClient.Send(root);
-        }
-
         public Action onSocketClosed
         {
             get
             {
-                return jSONClient.onSocketClosed;
+                return client.onSocketClosed;
             }
             set
             {
-                jSONClient.onSocketClosed = value;
+                client.onSocketClosed = value;
             }
         }
     }

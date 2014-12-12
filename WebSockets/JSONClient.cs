@@ -9,17 +9,12 @@ namespace WebSockets
 {
     public class JSONClient
     {
-        private WebSocketClient client;
+        protected WebSocketClient client;
         public Action<JObject> onMessageRecieved = null;
 
         public JSONClient(WebSocketClient client)
         {
             this.client = client;
-
-            this.client.onMessageRecieved = (WebSocketMessage msg) =>
-                {
-                    this.onMessageRecieved(msg.DataAsJson);
-                };
         }
 
         public void Send(JObject root)
@@ -27,16 +22,36 @@ namespace WebSockets
             this.client.SendPacket(root.ToString());
         }
 
-        public Action onSocketClosed
+        public void Send(string p, params KeyValuePair<string, string>[] args)
         {
-            get
+            JObject a = new JObject();
+
+            foreach (var arg in args)
             {
-                return client.onSocketClosed;
+                a.Add(arg.Key, arg.Value);
             }
-            set
-            {
-                client.onSocketClosed = value;
-            }
+
+            this.Send(p, a);
+        }
+
+        public void Send(string p, JObject a)
+        {
+            JObject root = new JObject();
+
+            root["event"] = p;
+            root["data"] = a;
+
+            this.Send(root);
+        }
+
+        public void Send(string p)
+        {
+            JObject root = new JObject();
+
+            root["event"] = p;
+            root["data"] = new JObject();
+
+            this.Send(root);
         }
     }
 }

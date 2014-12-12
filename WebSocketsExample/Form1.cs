@@ -26,9 +26,9 @@ namespace WebSocketsExample
         {
             server.onLog = (string str) =>
             {
-                this.textBox1.Invoke(new Action(() =>
+                this.txtBox1.Invoke(new Action(() =>
                 {
-                    this.textBox1.Text += (str.Length > 250 ? str.Substring(0, 250) : str) + Environment.NewLine;
+                    this.txtBox1.AppendText((str.Length > 250 ? str.Substring(0, 250) : str) + Environment.NewLine);
                 }));
             };
 
@@ -36,7 +36,7 @@ namespace WebSocketsExample
             {
                 this.server.Log("WebSocket client joined");
 
-                var json = new BoundJSONClient(new JSONClient(client));
+                var json = new BoundJSONClient(client);
 
                 Dictionary<string, string> parameters = new Dictionary<string, string>();
 
@@ -52,7 +52,8 @@ namespace WebSocketsExample
 
                         data["msg"] = parameters["name"] + ": " + (string)x["message"];
 
-                        json.Send("chat", data);    
+                        foreach (var i in this.server.JsonClients)
+                            i.Send("chat", data);
                     };
                 json["keyDown"] = x =>
                     {
@@ -75,6 +76,12 @@ namespace WebSocketsExample
                 };
 
             server.Init();
+        }
+
+        private void btnCommand_Click(object sender, EventArgs e)
+        {
+            foreach (var i in this.server.JsonClients)
+                i.Send(txtCommand.Text, new KeyValuePair<string, string>("data", txtData.Text));
         }
     }
 }

@@ -43,10 +43,11 @@ namespace WebSockets
         {
             get
             {
-                if (this.headers.ContainsKey(key))
+                if (this.headers.IsNotNull() && this.headers.ContainsKey(key))
                     return this.headers[key];
                 else
                     return null;
+
             }
         }
 
