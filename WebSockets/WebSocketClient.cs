@@ -20,23 +20,29 @@ namespace WebSockets
         public string request;
         public string protocol;
 
-        public Dictionary<string, string> headers = new Dictionary<string, string>();
+        public Dictionary<string, string> headers;
 
         public WebSocketHandshake(string str)
         {
             if (str != "")
             {
                 var _headers = str.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).ToList().Select(x => x.Split(':'));
+
                 var _getHeader = _headers.Where(x => x[0].StartsWith("GET"));
-                var getHeader = _getHeader.FirstOrDefault().First().Split(' ');
 
-                method = getHeader[0];
-                request = getHeader[1];
-                protocol = getHeader[2];
-
-                foreach (var header in _headers.Where(x => x.Count() > 1))
+                if (_getHeader.FirstOrDefault().IsNotNull())
                 {
-                    headers[header[0].Trim().ToLower()] = String.Join(":", header.Skip(1).ToArray()).Trim();
+                    var getHeader = _getHeader.FirstOrDefault().First().Split(' ');
+
+                    method = getHeader[0];
+                    request = getHeader[1];
+                    protocol = getHeader[2];
+
+                    headers = new Dictionary<string, string>();
+                    foreach (var header in _headers.Where(x => x.Count() > 1))
+                    {
+                        headers[header[0].Trim().ToLower()] = String.Join(":", header.Skip(1).ToArray()).Trim();
+                    }
                 }
             }
         }
@@ -49,6 +55,14 @@ namespace WebSockets
                     return this.headers[key];
                 else
                     return null;
+            }
+        }
+
+        public bool Valid
+        {
+            get
+            {
+                return headers.IsNotNull();
             }
         }
     }
