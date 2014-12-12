@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Net.Sockets;
 using System.Reflection.Emit;
@@ -57,6 +58,7 @@ namespace WebSockets
         public TcpClient tcpClient;
         public WebSocketServer Parent;
         public WebSocketHandshake handshake;
+        public Stream networkStream;
 
         public Action onSocketClosed = null;
 
@@ -106,7 +108,10 @@ namespace WebSockets
             }
 
             byte[] buffer = new byte[size];
-            var num = this.Socket.Receive(buffer, (int)size, SocketFlags.None);
+
+            var num = this.networkStream.Read(buffer, 0, (int)size);
+
+            //var num = this.Socket.Receive(buffer, (int)size, SocketFlags.None);
 
             return buffer.Take(num).ToArray();
         }
@@ -291,7 +296,7 @@ namespace WebSockets
 
         void RecievedBuffer(IAsyncResult res)
         {
-            if (this.Socket.IsNotNull())
+            try
             {
                 var recieved = this.Socket.EndReceive(res);
                 if (recieveErr == SocketError.Success)
@@ -308,6 +313,18 @@ namespace WebSockets
                 }
 
                 this.BeginRecieveing();
+            }
+            catch (ObjectDisposedException)
+            {
+                this.Close();
+            }
+            catch (NullReferenceException)
+            {
+                this.Close();
+            }
+            catch (SocketException)
+            {
+                this.Close();
             }
         }
 
@@ -335,7 +352,7 @@ namespace WebSockets
                                 break;
                             case 8:
                                 throw new Exception("Process Failed (Connection Closed)");
-                            case 10:
+                            case 10: //Pong
                                 continue;
                             default:
                                 throw new Exception("OpCode " + msg.Opcode + " not recognised");

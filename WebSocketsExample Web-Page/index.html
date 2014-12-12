@@ -7,11 +7,15 @@
         <script src="ws_events_dispatcher.js"></script>
 
         <style>
+			body
+			{
+				background-color: RGB(44,71,112);
+			}
             .notification
             {
-                background-color: #d0e4fe;
+                background-color: RGB(99,123,156);
                 overflow: hidden;
-                padding: 10px;
+                padding: 20px;
             }
             .notification:hover
             {
@@ -19,88 +23,105 @@
             }
             .notifications
             {
-                background-color: lightblue;
+                /*background-color: RGB(191,202,217);*/
                 -webkit-transition: width 300ms ease-in-out, height 300ms ease-in-out;
                 -moz-transition: width 300ms ease-in-out, height 300ms ease-in-out;
                 -o-transition: width 300ms ease-in-out, height 300ms ease-in-out;
                 transition: width 300ms ease-in-out, height 300ms ease-in-out;
             }
+			.textInput
+			{
+				.notification;
+				 background-color: RGB(99,123,156);
+				 padding:20px;
+			}
         </style>
         <script type="text/javascript">
             try 
             {
-                var server = new FancyWebSocket("ws://localhost:8000");
+				if ("WebSocket" in window)
+				{
+					var server = "";
+					
+					$(document).ready(function () {
+						notify("Startup");
+						
+						server = new FancyWebSocket("ws://localhost:8000");
+						
+						server.bind('chat', function (msg) {
+							notify(msg.msg);
+						})
+						server.bind('open', function () {
+							notify("Connected");
+							server.send("login", { name: "Tom" });
+						})
+						server.bind("loginAccepted", function () {
+							notify("Logged in");
+						})
+						server.bind("notification", function (msg) {
+							notify(msg.msg);
+						})
+						server.bind("close", function (evt) {
+							notify("Closed (" + evt.code + ")");
+						})
+						server.bind("error", function (evt) {
+							notify("Error" + JSON.stringify(evt));
+						})
+						server.bind("keyDown", function(msg){
+							notify(msg.msg);
+						});
+					});
 
-                server.bind('chat', function (msg) {
-                    notify(msg.msg);
-                })
-                server.bind('open', function () {
-                    notify("Connected");
-                    server.send("login", { name: "Tom" });
-                })
-                server.bind("loginAccepted", function () {
-                    notify("Logged in");
-                })
-                server.bind("notification", function (msg) {
-                    notify(msg.msg);
-                })
-                server.bind("close", function () {
-                    notify("Closed");
-                })
-                server.bind("error", function (evt) {
-                    notify("Error");
-                })
-				server.bind("keyDown", function(msg){
-					notify(msg.msg);
-				});
-				
-                function notify(msg) {
-                    var note = $("<div class='notification'>" + msg + "</div>")
-                        .appendTo($('#notifications'));
-
-                    note.delay(2000)
-                        .queue(function () {
-                            $(this).stop().fadeOut(1000,function () {
-                                
-                            });
-                        });
-                }
-                
-                $(document).ready(function () {
-                    notify("Startup");
-                });
-
-				$(document).keypress(function(e) {
-					server.send(
-                      'keyDown',
-                      {
-                          name: 'Test',
-                          message: String.fromCharCode(e.which),
-                      }
-                    );
-				});
-                function SendTextBox()
-                {
-                    server.send(
-                      'chat',
-                      {
-                          name: 'Test',
-                          message: $("#textbox").val()
-                      }
-                    );
-                }
+					$(document).keypress(function(e) {
+						server.send(
+						  'keyDown',
+						  {
+							  name: 'Test',
+							  message: String.fromCharCode(e.which),
+						  }
+						);
+					});
+					function SendTextBox()
+					{
+						server.send(
+						  'chat',
+						  {
+							  name: 'Test',
+							  message: $("#textbox").val()
+						  }
+						);
+					}
+				}
+				else
+				{
+					notify("WebSockets not supported");
+				}
             }
             catch (err)
             {
                 document.title = err.message;
+				console.log(err);
                 notify(err.message);
             }
+			
+			function notify(msg) 
+			{
+				var note = $("<div class='notification'>" + msg + "</div>")
+					.appendTo($('#notifications'));
+
+				/*note.delay(2000)
+					.queue(function () {
+						$(this).stop().fadeOut(1000,function () {
+							
+						});
+					});*/
+			}
 	    </script>
     </head>
     <body>
-        <div>
+        <div class="textInput">
+			<button onclick="SendTextBox()">Send</button>
             <input id="textbox" value="1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890" />
-	        <button onclick="SendTextBox()">Send</button>
         </div>
         <div id="messages"></div>
         <div id="notifications" class="notifications"></div>

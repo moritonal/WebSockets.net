@@ -62,9 +62,10 @@ var FancyWebSocket = function (url)
         dispatch(json.event, json.data)
     };
 
-    conn.onclose = function ()
+    conn.onclose = function(evt)
     {
-        dispatch('close', null)
+		console.log(evt);
+        dispatch('close', evt)
     }
     conn.onopen = function ()
     {

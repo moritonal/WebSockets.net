@@ -7,6 +7,9 @@ using System.Net;
 using System.Net.Sockets;
 using System.Collections.Concurrent;
 using System.Threading.Tasks;
+using System.Net.Security;
+using System.Security.Cryptography.X509Certificates;
+using System.IO;
 
 namespace WebSockets
 {
@@ -51,11 +54,25 @@ namespace WebSockets
             }).Start();
 		}
 
+        
+
         void TcpClientJoined(IAsyncResult res)
         {
             lock (Clients)
             {
                 var socketClient = new SocketClient(listener.EndAcceptTcpClient(res), this);
+
+                /*SslStream stream = new SslStream(socketClient.tcpClient.GetStream());
+
+                var a = new X509Certificate2(Environment.CurrentDirectory + "\\..\\..\\..\\Certs\\server.pfx", "test");
+                stream.AuthenticateAsServer(a, false, System.Security.Authentication.SslProtocols.Tls12, false);
+
+                socketClient.networkStream = stream;
+                
+                var temp = WebSocketClient.Encoder.GetBytes("hello");
+                socketClient.networkStream.Write(temp, 0, temp.Length);*/
+
+                socketClient.networkStream = socketClient.tcpClient.GetStream();
 
                 //Read first header
                 socketClient.ReadHeader();
