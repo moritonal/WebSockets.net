@@ -14,258 +14,16 @@ using System.Threading.Tasks;
 
 namespace WebSockets
 {
-    public class WebSocketHandshake
-    {
-        public string method;
-        public string request;
-        public string protocol;
-
-        public Dictionary<string, string> headers;
-
-        public WebSocketHandshake(string str)
-        {
-            if (str != "")
-            {
-                var _headers = str.Split(new string[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries).ToList().Select(x => x.Split(':'));
-
-                var _getHeader = _headers.Where(x => x[0].StartsWith("GET"));
-
-                if (_getHeader.FirstOrDefault().IsNotNull())
-                {
-                    var getHeader = _getHeader.FirstOrDefault().First().Split(' ');
-
-                    method = getHeader[0];
-                    request = getHeader[1];
-                    protocol = getHeader[2];
-
-                    headers = new Dictionary<string, string>();
-                    foreach (var header in _headers.Where(x => x.Count() > 1))
-                    {
-                        headers[header[0].Trim().ToLower()] = String.Join(":", header.Skip(1).ToArray()).Trim();
-                    }
-                }
-            }
-        }
-
-        public string this[string key]
-        {
-            get
-            {
-                if (this.headers.ContainsKey(key))
-                    return this.headers[key];
-                else
-                    return null;
-            }
-        }
-
-        public bool Valid
-        {
-            get
-            {
-                return headers.IsNotNull();
-            }
-        }
-    }
-
-    public class SocketClient
-    {
-        public TcpClient tcpClient;
-        public WebSocketServer Parent;
-        public WebSocketHandshake handshake;
-        public Stream networkStream;
-
-        public Action onSocketClosed = null;
-
-        public Socket Socket
-        {
-            get
-            {
-                return this.tcpClient.Client;
-            }
-            set
-            {
-                this.tcpClient.Client = value;
-            }
-        }
-
-        public SocketClient(TcpClient client, WebSocketServer parent)
-        {
-            this.tcpClient = client;
-            this.Parent = parent;
-        }
-
-        public static Encoding Encoder
-        {
-            get
-            {
-                return Encoding.UTF8;
-            }
-        }
-
-        public virtual void Close()
-        {
-            if (this.onSocketClosed.IsNotNull())
-                this.onSocketClosed();
-
-            if (this.Socket.IsNotNull())
-            {
-                this.Socket.Close();
-                this.Socket = null;
-            }
-        }
-
-        public byte[] Recieve(long size = 2048)
-        {
-            if ((int)size != size)
-            {
-                return null;
-            }
-
-            byte[] buffer = new byte[size];
-
-            var num = this.networkStream.Read(buffer, 0, (int)size);
-
-            //var num = this.Socket.Receive(buffer, (int)size, SocketFlags.None);
-
-            return buffer.Take(num).ToArray();
-        }
-
-        public bool Write(byte[] msg)
-        {
-            lock (this)
-            {
-                try
-                {
-                    if (this.Socket.IsNotNull())
-                    {
-                        SocketError err = SocketError.Success;
-                        this.Socket.Send(msg, 0, msg.Length, SocketFlags.None, out err);
-                        if (err == SocketError.Success)
-                        {
-                            return true;
-                        }
-                        else
-                        {
-                            throw new SocketException();
-                        }
-                    }
-                    else
-                        return false;
-                }
-                catch (SocketException)
-                {
-                    return false;
-                }
-            }
-        }
-
-        public bool Write(string str)
-        {
-            if (str != null)
-                return this.Write(SocketClient.Encoder.GetBytes(str));
-            return false;
-        }
-
-        public string Protocol
-        {
-            get
-            {
-                if (handshake.IsNotNull())
-                {
-                    var connectionMode = handshake["connection"];
-                    var upgradeMode = handshake["upgrade"];
-                    if (connectionMode.IsNotNull())
-                    {
-                        if (upgradeMode.IsNotNull() && upgradeMode.IsNotNull() && upgradeMode.ToLower() == "websocket")
-                        {
-                            return "ws";
-                        }
-                        else if (connectionMode.ToLower().Split(',').Contains("keep-alive"))
-                        {
-                            return "http";
-                        }
-                    }
-                }
-                return null;
-            }
-        }
-
-        public static implicit operator TcpClient(SocketClient client)
-        {
-            return client.tcpClient;
-        }
-
-        public void ReadHeader()
-        {
-            var buffer = this.Recieve();
-            if (buffer.Length > 0)
-            {
-                handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(buffer));
-            }
-        }
-
-        public virtual void Handshake()
-        {
-
-        }
-
-        public virtual void Start()
-        {
-
-        }
-    }
-
-    public class HttpSocketClient : SocketClient
-    {
-        public HttpSocketClient(TcpClient client, WebSocketServer server)
-            : base(client, server)
-        {
-
-        }
-    }
-
-    public class CounterResetEvent
-    {
-        AutoResetEvent resetEvent = new AutoResetEvent(false);
-        long value = 0;
-
-        public CounterResetEvent()
-        {
-            
-        }
-
-        public void Increment()
-        {
-            Interlocked.Increment(ref value);
-            this.resetEvent.Set();
-        }
-
-        public void Decrement()
-        {
-            while (Interlocked.Read(ref value) <= 0)
-            {
-                resetEvent.WaitOne();
-            }
-
-            Interlocked.Decrement(ref value);
-        }
-
-        public void Break()
-        {
-            value = 1;
-            resetEvent.Set();
-        }
-    }
-
     public class WebSocketClient : SocketClient
     {
         static private string guid = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-
         static SHA1 sha1 = SHA1CryptoServiceProvider.Create();
         
         public Action<WebSocketMessage> onMessageRecieved = null;
 
         ConcurrentQueue<byte> incomingData = new ConcurrentQueue<byte>();
+        CounterResetEvent isDataAvaliable = new CounterResetEvent();
+        byte[] buffer = new byte[2048];
 
         public WebSocketClient(TcpClient client, WebSocketServer server)
             : base(client, server)
@@ -276,7 +34,7 @@ namespace WebSockets
             this.Socket.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.SendBuffer, 8192);
         }
 
-        public override void Handshake()
+        public override void PerformHandshake()
         {
             var key = handshake["sec-websocket-key"];
 
@@ -290,7 +48,7 @@ namespace WebSockets
             //Finish handshake
             this.Write(response.ToString());
 
-            base.Handshake();
+            base.PerformHandshake();
         }
 
         public override void Start()
@@ -302,31 +60,22 @@ namespace WebSockets
             processThread.Start();
         }
 
-        long requests = 0;
-        CounterResetEvent isDataAvaliable = new CounterResetEvent();
-
-        byte[] buffer = new byte[2048];
-        SocketError recieveErr;
-
         void RecievedBuffer(IAsyncResult res)
         {
             try
             {
-                var recieved = this.Socket.EndReceive(res);
-                if (recieveErr == SocketError.Success)
+                var recieved = this.Stream.EndRead(res);
+                for (int i = 0; i < recieved; i++)
                 {
-                    for (int i = 0; i < recieved; i++)
-                    {
-                        incomingData.Enqueue(buffer[i]);
-                        isDataAvaliable.Increment();
-                    }
+                    incomingData.Enqueue(buffer[i]);
+                    isDataAvaliable.Increment();
                 }
-                else if (recieveErr != SocketError.WouldBlock)
-                {
-                    throw new Exception("Recieve Failed (" + recieveErr.ToString() + ")");
-                }
-
+               
                 this.BeginRecieveing();
+            }
+            catch (IOException)
+            {
+                this.Close();
             }
             catch (ObjectDisposedException)
             {
@@ -341,11 +90,10 @@ namespace WebSockets
                 this.Close();
             }
         }
-
         
         public void BeginRecieveing()
         {
-            this.Socket.BeginReceive(buffer, 0, buffer.Length, SocketFlags.None, out recieveErr, RecievedBuffer, null);
+            this.Stream.BeginRead(buffer, 0, buffer.Length, this.RecievedBuffer, null);
         }
 
         public void ProcessPacketThread()
@@ -362,7 +110,6 @@ namespace WebSockets
                         {
                             case 1:
                                 this.onMessageRecieved(msg);
-                                requests++;
                                 break;
                             case 8:
                                 throw new Exception("Process Failed (Connection Closed)");
@@ -392,6 +139,24 @@ namespace WebSockets
         private byte[] ComputeHash(string str)
         {
             return sha1.ComputeHash(SocketClient.Encoder.GetBytes(str));
+        }
+
+        public byte GetByte()
+        {
+            isDataAvaliable.Decrement();
+
+            byte data = 0;
+            if (this.incomingData.TryDequeue(out data))
+                return data;
+            else
+                throw new Exception("Couldn't read from queue");
+        }
+
+        public override void Close()
+        {
+            base.Close();
+
+            isDataAvaliable.Break();
         }
 
         public bool SendPacket(string msg, byte opCode = 1)
@@ -458,32 +223,6 @@ namespace WebSockets
             data.AddRange(WebSocketClient.Encoder.GetBytes(msg));
 
             return this.Write(data.ToArray());
-        }
-
-        public byte GetByte()
-        {
-            byte data = 0;
-
-            isDataAvaliable.Decrement();
-
-            if (this.Socket.IsNull())
-                throw new Exception("GetByte Exit clean");
-
-            if (this.incomingData.TryDequeue(out data))
-            {
-                return data;
-            }
-            else
-            {
-                throw new Exception("Couldn't read from queue");
-            }
-        }
-
-        public override void Close()
-        {
-            base.Close();
-
-            isDataAvaliable.Break();
         }
 
         public WebSocketMessage ProcessPacket()

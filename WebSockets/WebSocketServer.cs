@@ -55,42 +55,15 @@ namespace WebSockets
             }).Start();
 		}
 
-        
-
         void TcpClientJoined(IAsyncResult res)
         {
             lock (Clients)
             {
                 var socketClient = new SocketClient(listener.EndAcceptTcpClient(res), this);
 
-                socketClient.networkStream = socketClient.tcpClient.GetStream();
+                byte[] originalRequest = socketClient.Recieve();
 
-                byte[] originalRequest = new byte[2048];// socketClient.Recieve();
-
-                var possibleHandshake = new WebSocketHandshake(SocketClient.Encoder.GetString(originalRequest));
-
-                if (!possibleHandshake.Valid)
-                {
-                    //If the request wasn't valid, then let's try see if it's a TslStream
-                    SslStream sslStream = new SslStream(socketClient.networkStream, false);
-                    var a = new X509Certificate2(Environment.CurrentDirectory + "\\..\\..\\..\\Certs\\server.pfx", "test");
-                    sslStream.AuthenticateAsServer(a, false, SslProtocols.Tls, false);
-                    sslStream.ReadTimeout = 5000;
-                    sslStream.WriteTimeout = 5000;
-                    socketClient.networkStream = sslStream;
-
-                    originalRequest = socketClient.Recieve();
-                    possibleHandshake = new WebSocketHandshake(SocketClient.Encoder.GetString(originalRequest));
-                }
-                else
-                {
-                    //socketClient.networkStream = socketClient.tcpClient.GetStream();
-                }
-
-                socketClient.handshake = possibleHandshake;
-
-                //Read first header
-                //socketClient.ReadHeader();
+                socketClient.handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(originalRequest));
 
                 SocketClient protcolClient = null;
 
@@ -108,7 +81,7 @@ namespace WebSockets
                 //Handshake
                 if (protcolClient.IsNotNull())
                 {
-                    protcolClient.Handshake();
+                    protcolClient.PerformHandshake();
 
                     var g = Guid.NewGuid();
                     Clients.TryAdd(g, protcolClient);
@@ -129,10 +102,9 @@ namespace WebSockets
                         case "ws":
                             if (this.onClientJoined != null)
                                 this.onClientJoined(protcolClient as WebSocketClient);
+                            protcolClient.Start();
                             break;
-                    }
-
-                    protcolClient.Start();
+                    }                    
                 }
 
                 listener.BeginAcceptTcpClient(this.TcpClientJoined, null);

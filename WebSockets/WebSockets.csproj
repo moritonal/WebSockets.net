@@ -34,8 +34,12 @@
     <Compile Include="BoundJSONClient.cs" />
     <Compile Include="ByteAsBits.cs" />
     <Compile Include="ByteFunctions.cs" />
+    <Compile Include="CounterResetEvent.cs" />
+    <Compile Include="HttpSocketClient.cs" />
     <Compile Include="JSONClient.cs" />
+    <Compile Include="SocketClient.cs" />
     <Compile Include="WebSocketClient.cs" />
+    <Compile Include="WebSocketHandshake.cs" />
     <Compile Include="WebSocketMessage.cs" />
     <Compile Include="WebSocketServer.cs" />
   </ItemGroup>
