@@ -2,7 +2,7 @@
 <html>
     <head>
         <title>Example Webpage</title>
-        <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
+        <script src="jquery-2.1.1.min.js"></script>
         <script src="ws_events_dispatcher.js"></script>
 
         <style>
@@ -43,11 +43,11 @@
 					if ("WebSocket" in window)
 					{
 						var server = "";
-						
+					
 						$(document).ready(function () {
 							notify("Startup");
 							
-							server = new FancyWebSocket("ws://localhost:8000");
+							server = new FancyWebSocket("wss://" + location.host);
 							
 							server.bind('chat', function (msg) {
 								notify(msg.msg);
@@ -86,7 +86,8 @@
 							  }
 							);
 						});
-						function SendTextBox()
+						
+						window.SendTextBox = function()
 						{
 							server.send(
 							  'chat',

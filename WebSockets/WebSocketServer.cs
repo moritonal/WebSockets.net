@@ -57,7 +57,7 @@ namespace WebSockets
             new Task(() =>
             {
                 var a = IPAddress.Loopback;
-                listener = new TcpListener(new IPEndPoint(a, this.Port));
+                listener = new TcpListener(new IPEndPoint(IPAddress.Parse("192.168.0.7"), this.Port));
                 listener.Start();
 
                 AcceptClient();
@@ -99,7 +99,7 @@ namespace WebSockets
                 {
                     SslStream sslStream = new SslStream(socketClient.tcpClient.GetStream(), true);
                     var a = new X509Certificate2(Environment.CurrentDirectory + "\\..\\..\\..\\Certs\\server.pfx", "test");
-                    sslStream.AuthenticateAsServer(a, false, SslProtocols.Tls12, false);
+                    sslStream.AuthenticateAsServer(a, false, SslProtocols.Default, false);
                     sslStream.ReadTimeout = 5000;
                     sslStream.WriteTimeout = 5000;
 
@@ -133,8 +133,9 @@ namespace WebSockets
                             return;
                         }
                     }
-                    if (count == 100)
+                    if (count == 101)
                     {
+                        protcolClient.Close();
                         AcceptClient();
                         return;
                     }

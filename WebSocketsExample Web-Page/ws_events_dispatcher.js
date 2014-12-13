@@ -54,23 +54,20 @@ var FancyWebSocket = function (url)
         conn.send( payload ); // <= send JSON data to socket server
         return this;
     };
-
-    // dispatch to the right handlers
+	conn.onopen = function ()
+    {
+        dispatch('open', null)
+    }
+	conn.onclose = function(evt)
+    {
+		console.log(evt);
+        dispatch('close', evt)
+    }
     conn.onmessage = function (evt)
     {
         var json = JSON.parse(evt.data)
         dispatch(json.event, json.data)
     };
-
-    conn.onclose = function(evt)
-    {
-		console.log(evt);
-        dispatch('close', evt)
-    }
-    conn.onopen = function ()
-    {
-        dispatch('open', null)
-    }
     conn.onerror = function(evt)
     {
         dispatch('error', evt);
