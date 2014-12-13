@@ -61,7 +61,14 @@ namespace WebSocketsExample
                         json.Send("keyDown",
                             new KeyValuePair<string, string>("msg", parameters["name"] + ": " + (string)x["message"]));
                     };
-
+                json["setRot"] = x =>
+                    {
+                        foreach (var i in this.server.JsonClients)
+                            i.Send("setRot",
+                                new KeyValuePair<string, string>("x", (string)x["x"]),
+                                new KeyValuePair<string, string>("y", (string)x["y"]),
+                                new KeyValuePair<string, string>("z", (string)x["z"]));
+                    };
             };
 
             server.onHttpRequest = (HttpSocketClient client) =>
@@ -73,7 +80,13 @@ namespace WebSocketsExample
 
                     this.server.Log("Served " + r);
 
-                    client.Write(HttpServer.ServeHttpPage(Environment.CurrentDirectory + "\\..\\..\\..\\WebSocketsExample Web-Page" + r));
+                    var type = "text/html";
+                    if (r.EndsWith(".css"))
+                        type = "text/css";
+                    else if (r.EndsWith(".js"))
+                        type = "text/javascript";
+
+                    client.Write(HttpServer.ServeHttpPage(Environment.CurrentDirectory + "\\..\\..\\..\\WebSocketsExample Web-Page" + r, type));
                 };
 
             server.Init();

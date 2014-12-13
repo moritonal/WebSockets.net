@@ -9,16 +9,27 @@ namespace HttpHelper
 {
     public class HttpServer
     {
-        public static string ServeHttpPage(string file)
+        public static string ServeHttpPage(string file, string mimeType)
         {
             StringBuilder str = new StringBuilder();
 
-            str.AppendLine("HTTP/1.1 200 OK");
-            str.AppendLine("Content-Type: text/html; charset=UTF-8");
-            str.AppendLine("Connection: close");
-            str.AppendLine("");
+            string fileContents = null;
+
             if (File.Exists(file))
-                str.Append(File.ReadAllText(file));
+                fileContents = File.ReadAllText(file);
+
+            str.AppendLine("HTTP/1.1 200 OK");
+            str.AppendLine("Content-Type: " + mimeType + "; charset=UTF-8");
+            str.AppendLine("Connection: close");
+            str.AppendLine("Content-Type: " + mimeType);
+
+            if (fileContents != null)
+                str.AppendLine("Content-Length:" + fileContents.Length);
+
+            str.AppendLine("");
+
+            if (fileContents != null)
+                str.Append(fileContents);
 
             return str.ToString();
         }

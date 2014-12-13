@@ -1,107 +1,104 @@
-<!DOCTYPE html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
 <html>
     <head>
         <title>Example Webpage</title>
-        <script src="jquery-2.1.1.min.js"></script>
+        <link href="style.css" rel="stylesheet" type="text/css" />
+		<script src="jquery-2.1.1.min.js"></script>
         <script src="ws_events_dispatcher.js"></script>
-
-        <style>
-			body
-			{
-				background-color: RGB(44,71,112);
-			}
-            .notification
-            {
-                background-color: RGB(99,123,156);
-                overflow: hidden;
-                padding: 20px;
-            }
-            .notification:hover
-            {
-                opacity: 1;
-            }
-            .notifications
-            {
-                /*background-color: RGB(191,202,217);*/
-                -webkit-transition: width 300ms ease-in-out, height 300ms ease-in-out;
-                -moz-transition: width 300ms ease-in-out, height 300ms ease-in-out;
-                -o-transition: width 300ms ease-in-out, height 300ms ease-in-out;
-                transition: width 300ms ease-in-out, height 300ms ease-in-out;
-            }
-			.textInput
-			{
-				.notification;
-				 background-color: RGB(99,123,156);
-				 padding:20px;
-			}
-        </style>
+		<script src="compassHeading.js"></script>
+		<script src="//cdnjs.cloudflare.com/ajax/libs/three.js/r69/three.min.js"></script>
+		
+		
         <script type="text/javascript">
-            try 
-            {
-				function connect()
-				{
-					if ("WebSocket" in window)
-					{
-						var server = "";
-					
-						$(document).ready(function () {
-							notify("Startup");
-							
-							server = new FancyWebSocket("wss://" + location.host);
-							
-							server.bind('chat', function (msg) {
-								notify(msg.msg);
-							})
-							server.bind('open', function () {
-								notify("Connected");
-								server.send("login", { name: "Tom" });
-							})
-							server.bind("loginAccepted", function () {
-								notify("Logged in");
-							})
-							server.bind("notification", function (msg) {
-								notify(msg.msg);
-							})
-							server.bind("close", function (evt) {
-								notify("Closed (" + evt.code + ")");
-							})
-							server.bind("error", function (evt) {
-								notify("Error" + JSON.stringify(evt));
-							})
-							server.bind("keyDown", function(msg){
-								notify(msg.msg);
-							});
-							server.bind("run", function(msg){
-								notify("Running Javascript");
-								eval(msg.data);
-							});
-						});
+		
+			var cube = "";
+			
+			/*$(document).ready(function () {
+				var scene = new THREE.Scene();
+				var camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
-						$(document).keypress(function(e) {
-							server.send(
-							  'keyDown',
-							  {
-								  name: 'Test',
-								  message: String.fromCharCode(e.which),
-							  }
-							);
-						});
+				var renderer = new THREE.WebGLRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				document.body.appendChild( renderer.domElement );
+				var geometry = new THREE.BoxGeometry( 1, 1, 1 );
+				var material = new THREE.MeshBasicMaterial( { color: 0x00ff00 } );
+				cube = new THREE.Mesh( geometry, material );
+				scene.add( cube );
+
+				camera.position.z = 5;
+				
+				function render()
+				{
+					requestAnimationFrame( render );
+					
+					renderer.render( scene, camera );
+				}
+				render();
+			});*/
+			
+            try
+            {
+				if ("WebSocket" in window)
+				{
+					var server = "";
+				
+					$(document).ready(function () {
+						notify("Startup");
 						
-						window.SendTextBox = function()
-						{
-							server.send(
-							  'chat',
-							  {
-								  name: 'Test',
-								  message: $("#textbox").val()
-							  }
-							);
-						}
-					}
-					else
+						server = new FancyWebSocket("wss://" + location.host);
+						
+						server.bind('chat', function (msg) {
+							notify(msg.msg);
+						})
+						server.bind('open', function () {
+							notify("Connected");
+							server.send("login", { name: "Tom" });
+						})
+						server.bind("loginAccepted", function () {
+							notify("Logged in");
+						})
+						server.bind("notification", function (msg) {
+							notify(msg.msg);
+						})
+						server.bind("close", function (evt) {
+							notify("Closed (" + evt.code + ")");
+						})
+						server.bind("error", function (evt) {
+							notify("Error" + JSON.stringify(evt));
+						})
+						server.bind("keyDown", function(msg){
+							notify(msg.msg);
+						});
+						server.bind("run", function(msg){
+							notify("Running Javascript");
+							eval(msg.data);
+						});
+					});
+
+					$(document).keypress(function(e) {
+						server.send(
+						  'keyDown',
+						  {
+							  name: 'Test',
+							  message: String.fromCharCode(e.which),
+						  }
+						);
+					});
+					
+					window.SendTextBox = function()
 					{
-						notify("WebSockets not supported");
+						server.send(
+						  'chat',
+						  {
+							  name: 'Test',
+							  message: $("#textbox").val()
+						  }
+						);
 					}
+				}
+				else
+				{
+					notify("WebSockets not supported");
 				}
             }
             catch (err)
@@ -116,20 +113,19 @@
 				var note = $("<div class='notification'>" + msg + "</div>")
 					.appendTo($('#notifications'));
 
-				/*note.delay(2000)
+				note.delay(2000)
 					.queue(function () {
 						$(this).stop().fadeOut(1000,function () {
 							
 						});
-					});*/
+					});
 			}
 	    </script>
     </head>
     <body>
         <div class="textInput">
 			<button onclick="SendTextBox()">Send</button>
-            <input id="textbox" value="1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890" />
-			<button onclick="connect()">Connect</button>
+            <input id="textbox" value="Hello, World!" />
         </div>
         <div id="messages"></div>
         <div id="notifications" class="notifications"></div>

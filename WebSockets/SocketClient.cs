@@ -83,19 +83,22 @@ namespace WebSockets
 
         public bool Write(byte[] msg)
         {
-            try
+            lock (this)
             {
-                if (this.Socket.IsNotNull())
+                try
                 {
-                    this.Stream.Write(msg, 0, msg.Length);
-                    return true;
+                    if (this.Socket.IsNotNull())
+                    {
+                        this.Stream.Write(msg, 0, msg.Length);
+                        return true;
+                    }
+                    else
+                        return false;
                 }
-                else
+                catch (SocketException)
+                {
                     return false;
-            }
-            catch (SocketException)
-            {
-                return false;
+                }
             }
         }
 
