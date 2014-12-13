@@ -52,24 +52,24 @@ namespace WebSockets
             }
         }
 
+        public string address = "";
+
 		public void Init()
 		{
-            new Task(() =>
-            {
-                var a = IPAddress.Loopback;
-                listener = new TcpListener(new IPEndPoint(IPAddress.Parse("192.168.0.7"), this.Port));
-                listener.Start();
+            var targetIP = IPAddress.Parse("192.168.0.7");
+            address = targetIP + ":" + this.Port;
 
-                AcceptClient();
+            listener = new TcpListener(new IPEndPoint(targetIP, this.Port));
+            listener.Start();
 
-                Timer t = new Timer(
-                    (object obj) =>
-                    {
-                        Clients.Values.Select(x => x as WebSocketClient).Where(x => x.IsNotNull()).Where(x=>x.Valid).ToList().ForEach(x => x.SendPacket("", 9));
-                    },
-                    null, 0, 1000);
+            AcceptClient();
 
-            }).Start();
+            Timer t = new Timer(
+                (object obj) =>
+                {
+                    Clients.Values.Select(x => x as WebSocketClient).Where(x => x.IsNotNull()).Where(x=>x.Valid).ToList().ForEach(x => x.SendPacket("", 9));
+                },
+                null, 0, 1000);
 		}
 
         private void AcceptClient()
@@ -196,5 +196,13 @@ namespace WebSockets
 			if (this.onLog != null)
 				onLog(msg);
 		}
+
+        public string Address
+        {
+            get
+            {
+                return address;
+            }
+        }
     }
 }

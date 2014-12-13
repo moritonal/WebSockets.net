@@ -1,4 +1,5 @@
-﻿using HttpHelper;
+﻿using Gma.QrCodeNet.Encoding;
+using HttpHelper;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
@@ -76,6 +77,18 @@ namespace WebSocketsExample
                 };
 
             server.Init();
+
+            var encoder = new QrEncoder(ErrorCorrectionLevel.H);
+            var code = encoder.Encode("https://" + server.Address);
+            var bitmap = new Bitmap(code.Matrix.Width * 5, code.Matrix.Height * 5);
+
+            for (int x = 0; x < code.Matrix.Width; x++)
+                for (int y = 0; y < code.Matrix.Height; y++)
+                    for (int xx = 0; xx < 5; xx++)
+                        for (int yy = 0; yy < 5; yy++)
+                            bitmap.SetPixel(x*5 + xx, y*5 + yy, code.Matrix[x, y] ? Color.Black : Color.White);
+
+            this.pictureBox1.Image = bitmap;
         }
 
         private void btnCommand_Click(object sender, EventArgs e)
