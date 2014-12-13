@@ -32,8 +32,8 @@
             this.btnCommand = new System.Windows.Forms.Button();
             this.txtCommand = new System.Windows.Forms.TextBox();
             this.txtData = new System.Windows.Forms.TextBox();
-            this.pictureBox1 = new System.Windows.Forms.PictureBox();
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).BeginInit();
+            this.treeView1 = new System.Windows.Forms.TreeView();
+            this.panel1 = new System.Windows.Forms.Panel();
             this.SuspendLayout();
             // 
             // txtBox1
@@ -70,21 +70,27 @@
             this.txtData.Size = new System.Drawing.Size(347, 20);
             this.txtData.TabIndex = 3;
             // 
-            // pictureBox1
+            // treeView1
             // 
-            this.pictureBox1.Location = new System.Drawing.Point(370, 52);
-            this.pictureBox1.Name = "pictureBox1";
-            this.pictureBox1.Size = new System.Drawing.Size(220, 220);
-            this.pictureBox1.SizeMode = System.Windows.Forms.PictureBoxSizeMode.StretchImage;
-            this.pictureBox1.TabIndex = 4;
-            this.pictureBox1.TabStop = false;
+            this.treeView1.Location = new System.Drawing.Point(370, 279);
+            this.treeView1.Name = "treeView1";
+            this.treeView1.Size = new System.Drawing.Size(220, 140);
+            this.treeView1.TabIndex = 5;
+            // 
+            // panel1
+            // 
+            this.panel1.Location = new System.Drawing.Point(370, 52);
+            this.panel1.Name = "panel1";
+            this.panel1.Size = new System.Drawing.Size(220, 220);
+            this.panel1.TabIndex = 6;
             // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.ClientSize = new System.Drawing.Size(602, 431);
-            this.Controls.Add(this.pictureBox1);
+            this.Controls.Add(this.panel1);
+            this.Controls.Add(this.treeView1);
             this.Controls.Add(this.txtData);
             this.Controls.Add(this.txtCommand);
             this.Controls.Add(this.btnCommand);
@@ -92,7 +98,6 @@
             this.Name = "Form1";
             this.Text = "WebSockets Example";
             this.Load += new System.EventHandler(this.Form1_Load);
-            ((System.ComponentModel.ISupportInitialize)(this.pictureBox1)).EndInit();
             this.ResumeLayout(false);
             this.PerformLayout();
 
@@ -104,7 +109,8 @@
         private System.Windows.Forms.Button btnCommand;
         private System.Windows.Forms.TextBox txtCommand;
         private System.Windows.Forms.TextBox txtData;
-        private System.Windows.Forms.PictureBox pictureBox1;
+        private System.Windows.Forms.TreeView treeView1;
+        private System.Windows.Forms.Panel panel1;
     }
 }
 

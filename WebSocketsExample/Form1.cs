@@ -56,18 +56,11 @@ namespace WebSocketsExample
                         foreach (var i in this.server.JsonClients)
                             i.Send("chat", data);
                     };
+
                 json["keyDown"] = x =>
                     {
                         json.Send("keyDown",
                             new KeyValuePair<string, string>("msg", parameters["name"] + ": " + (string)x["message"]));
-                    };
-                json["setRot"] = x =>
-                    {
-                        foreach (var i in this.server.JsonClients)
-                            i.Send("setRot",
-                                new KeyValuePair<string, string>("x", (string)x["x"]),
-                                new KeyValuePair<string, string>("y", (string)x["y"]),
-                                new KeyValuePair<string, string>("z", (string)x["z"]));
                     };
             };
 
@@ -91,17 +84,21 @@ namespace WebSocketsExample
 
             server.Init();
 
-            var encoder = new QrEncoder(ErrorCorrectionLevel.H);
-            var code = encoder.Encode("https://" + server.Address);
-            var bitmap = new Bitmap(code.Matrix.Width * 5, code.Matrix.Height * 5);
+            
+            var code = new QrEncoder(ErrorCorrectionLevel.H).Encode("https://" + server.Address);
+            var bitmap = new Bitmap(code.Matrix.Width, code.Matrix.Height);
 
             for (int x = 0; x < code.Matrix.Width; x++)
                 for (int y = 0; y < code.Matrix.Height; y++)
-                    for (int xx = 0; xx < 5; xx++)
-                        for (int yy = 0; yy < 5; yy++)
-                            bitmap.SetPixel(x*5 + xx, y*5 + yy, code.Matrix[x, y] ? Color.Black : Color.White);
+                    bitmap.SetPixel(x, y, code.Matrix[x, y] ? Color.Black : Color.White);
 
-            this.pictureBox1.Image = bitmap;
+            PictureBoxWithInterpolationMode p = new PictureBoxWithInterpolationMode();
+            p.Image = bitmap;
+            p.InterpolationMode = System.Drawing.Drawing2D.InterpolationMode.NearestNeighbor;
+            p.SizeMode = PictureBoxSizeMode.StretchImage;
+
+            this.panel1.Controls.Add(p);
+            p.Dock = DockStyle.Fill;
         }
 
         private void btnCommand_Click(object sender, EventArgs e)
