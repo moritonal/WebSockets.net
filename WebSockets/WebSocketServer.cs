@@ -81,6 +81,7 @@ namespace WebSockets
         {
             var socketClient = new SocketClient(listener.EndAcceptTcpClient(res), this);
 
+            //Peek at the header
             byte[] originalRequest = socketClient.Recieve(SocketFlags.Peek);
 
             if (originalRequest.Length != 0)
@@ -108,14 +109,15 @@ namespace WebSockets
 
                     sslStream.Flush();
 
-                    protcolClient.Write("hello");
-
                     List<byte> str = new List<byte>();
-                    while (true)
+                    int count = 0;
+                    while (count++ < 100)
                     {
                         try
                         {
                             originalRequest = protcolClient.Recieve();
+                            Thread.Yield();
+
                             foreach (var b in originalRequest)
                                 str.Add(b);
 
@@ -131,9 +133,16 @@ namespace WebSockets
                             return;
                         }
                     }
+                    if (count == 100)
+                    {
+                        AcceptClient();
+                        return;
+                    }
 
                     socketClient.handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(str.ToArray()));
                 }
+
+                Stream preStream = socketClient.IsNotNull() ? socketClient.Stream : null;
 
                 switch (socketClient.Protocol)
                 {
@@ -144,6 +153,9 @@ namespace WebSockets
                         protcolClient = new WebSocketClient(socketClient, this) { handshake = socketClient.handshake};
                         break;
                 }
+
+                if (preStream.IsNotNull())
+                    protcolClient.Stream = preStream;
 
                 //Handshake
                 if (protcolClient.IsNotNull())
