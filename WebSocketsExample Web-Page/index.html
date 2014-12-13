@@ -3,7 +3,6 @@
     <head>
         <title>Example Webpage</title>
         <script src="https://code.jquery.com/jquery-2.1.1.min.js"></script>
-	    <script src="http://jquery-websocket.googlecode.com/files/jquery.websocket-0.0.1.js"></script>
         <script src="ws_events_dispatcher.js"></script>
 
         <style>
@@ -39,66 +38,69 @@
         <script type="text/javascript">
             try 
             {
-				if ("WebSocket" in window)
+				function connect()
 				{
-					var server = "";
-					
-					$(document).ready(function () {
-						notify("Startup");
-						
-						server = new FancyWebSocket("ws://localhost:8000");
-						
-						server.bind('chat', function (msg) {
-							notify(msg.msg);
-						})
-						server.bind('open', function () {
-							notify("Connected");
-							server.send("login", { name: "Tom" });
-						})
-						server.bind("loginAccepted", function () {
-							notify("Logged in");
-						})
-						server.bind("notification", function (msg) {
-							notify(msg.msg);
-						})
-						server.bind("close", function (evt) {
-							notify("Closed (" + evt.code + ")");
-						})
-						server.bind("error", function (evt) {
-							notify("Error" + JSON.stringify(evt));
-						})
-						server.bind("keyDown", function(msg){
-							notify(msg.msg);
-						});
-						server.bind("run", function(msg){
-							notify("Running Javascript");
-							eval(msg.data);
-						});
-					});
-
-					$(document).keypress(function(e) {
-						server.send(
-						  'keyDown',
-						  {
-							  name: 'Test',
-							  message: String.fromCharCode(e.which),
-						  }
-						);
-					});
-					function SendTextBox()
+					if ("WebSocket" in window)
 					{
-						server.send(
-						  'chat',
-						  {
-							  name: 'Test',
-							  message: $("#textbox").val()
-						  }
-						);
+						var server = "";
+						
+						$(document).ready(function () {
+							notify("Startup");
+							
+							server = new FancyWebSocket("ws://localhost:8000");
+							
+							server.bind('chat', function (msg) {
+								notify(msg.msg);
+							})
+							server.bind('open', function () {
+								notify("Connected");
+								server.send("login", { name: "Tom" });
+							})
+							server.bind("loginAccepted", function () {
+								notify("Logged in");
+							})
+							server.bind("notification", function (msg) {
+								notify(msg.msg);
+							})
+							server.bind("close", function (evt) {
+								notify("Closed (" + evt.code + ")");
+							})
+							server.bind("error", function (evt) {
+								notify("Error" + JSON.stringify(evt));
+							})
+							server.bind("keyDown", function(msg){
+								notify(msg.msg);
+							});
+							server.bind("run", function(msg){
+								notify("Running Javascript");
+								eval(msg.data);
+							});
+						});
+
+						$(document).keypress(function(e) {
+							server.send(
+							  'keyDown',
+							  {
+								  name: 'Test',
+								  message: String.fromCharCode(e.which),
+							  }
+							);
+						});
+						function SendTextBox()
+						{
+							server.send(
+							  'chat',
+							  {
+								  name: 'Test',
+								  message: $("#textbox").val()
+							  }
+							);
+						}
 					}
-				}
-				else
-				{
-					notify("WebSockets not supported");
+					else
+					{
+						notify("WebSockets not supported");
+					}
 				}
             }
             catch (err)
@@ -113,12 +115,12 @@
 				var note = $("<div class='notification'>" + msg + "</div>")
 					.appendTo($('#notifications'));
 
-				note.delay(2000)
+				/*note.delay(2000)
 					.queue(function () {
 						$(this).stop().fadeOut(1000,function () {
 							
 						});
-					});
+					});*/
 			}
 	    </script>
     </head>
@@ -126,6 +128,7 @@
         <div class="textInput">
 			<button onclick="SendTextBox()">Send</button>
             <input id="textbox" value="1234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890" />
+			<button onclick="connect()">Connect</button>
         </div>
         <div id="messages"></div>
         <div id="notifications" class="notifications"></div>

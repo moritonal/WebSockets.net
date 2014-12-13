@@ -67,13 +67,18 @@ namespace WebSockets
             }
         }
 
+        public byte[] Recieve(SocketFlags flags)
+        {
+            byte[] buffer = new byte[2048];
+            var i = this.Socket.Receive(buffer, flags);
+            return buffer.Take(i).ToArray();
+        }
+
         public byte[] Recieve(long size = 2048)
         {
             byte[] buffer = new byte[size];
-
-            var num = this.networkStream.Read(buffer, 0, (int)size);
-
-            return buffer.Take(num).ToArray();
+            var i = this.Stream.Read(buffer, 0, (int)size);
+            return buffer.Take(i).ToArray();
         }
 
         public bool Write(byte[] msg)

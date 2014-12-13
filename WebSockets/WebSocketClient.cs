@@ -58,6 +58,8 @@ namespace WebSockets
 
             Thread processThread = new Thread(ProcessPacketThread);
             processThread.Start();
+            
+            Valid = true;
         }
 
         void RecievedBuffer(IAsyncResult res)
@@ -299,6 +301,12 @@ namespace WebSockets
                 msg.Data[i] ^= msg.MaskingKey[i % 4];
             
             return msg;
+        }
+
+        public bool Valid
+        {
+            get;
+            private set;
         }
     }
 }

@@ -56,26 +56,32 @@ namespace WebSockets
 		{
             new Task(() =>
             {
-                listener = new TcpListener(new IPEndPoint(IPAddress.Any, this.Port));
+                var a = IPAddress.Loopback;
+                listener = new TcpListener(new IPEndPoint(a, this.Port));
                 listener.Start();
 
-                listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
+                AcceptClient();
 
                 Timer t = new Timer(
                     (object obj) =>
                     {
-                        Clients.Values.Select(x => x as WebSocketClient).Where(x => x.IsNotNull()).ToList().ForEach(x => x.SendPacket("", 9));
+                        Clients.Values.Select(x => x as WebSocketClient).Where(x => x.IsNotNull()).Where(x=>x.Valid).ToList().ForEach(x => x.SendPacket("", 9));
                     },
                     null, 0, 1000);
 
             }).Start();
 		}
 
+        private void AcceptClient()
+        {
+            listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
+        }
+
         void TcpClientJoined(IAsyncResult res)
         {
             var socketClient = new SocketClient(listener.EndAcceptTcpClient(res), this);
 
-            byte[] originalRequest = socketClient.Recieve();
+            byte[] originalRequest = socketClient.Recieve(SocketFlags.Peek);
 
             if (originalRequest.Length != 0)
             {
@@ -83,14 +89,59 @@ namespace WebSockets
 
                 SocketClient protcolClient = null;
 
-                //Work out correct client
+                if (socketClient.handshake.Valid)
+                {
+                    //Work out correct client
+                    socketClient.Recieve();
+                }
+                else
+                {
+                    SslStream sslStream = new SslStream(socketClient.tcpClient.GetStream(), true);
+                    var a = new X509Certificate2(Environment.CurrentDirectory + "\\..\\..\\..\\Certs\\server.pfx", "test");
+                    sslStream.AuthenticateAsServer(a, false, SslProtocols.Tls12, false);
+                    sslStream.ReadTimeout = 5000;
+                    sslStream.WriteTimeout = 5000;
+
+                    socketClient.Stream = sslStream;
+
+                    protcolClient = new WebSocketClient(socketClient, this) { handshake = socketClient.handshake, Stream = sslStream };
+
+                    sslStream.Flush();
+
+                    protcolClient.Write("hello");
+
+                    List<byte> str = new List<byte>();
+                    while (true)
+                    {
+                        try
+                        {
+                            originalRequest = protcolClient.Recieve();
+                            foreach (var b in originalRequest)
+                                str.Add(b);
+
+                            if (str.Count >= 2)
+                            {
+                                if (SocketClient.Encoder.GetString(str.Skip(str.Count - 4).ToArray()) == "\r\n\r\n")
+                                    break;
+                            }
+                        }
+                        catch(IOException)
+                        {
+                            AcceptClient();
+                            return;
+                        }
+                    }
+
+                    socketClient.handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(str.ToArray()));
+                }
+
                 switch (socketClient.Protocol)
                 {
                     case "http":
-                        protcolClient = new HttpSocketClient(socketClient, this) { handshake = socketClient.handshake };
+                        protcolClient = new HttpSocketClient(socketClient, this) { handshake = socketClient.handshake};
                         break;
                     case "ws":
-                        protcolClient = new WebSocketClient(socketClient, this) { handshake = socketClient.handshake };
+                        protcolClient = new WebSocketClient(socketClient, this) { handshake = socketClient.handshake};
                         break;
                 }
 
@@ -124,7 +175,7 @@ namespace WebSockets
                 }
             }
 
-            listener.BeginAcceptTcpClient(this.TcpClientJoined, null);
+            AcceptClient();
         }
 
 		public void Log(string msg)
