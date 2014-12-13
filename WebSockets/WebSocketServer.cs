@@ -56,7 +56,10 @@ namespace WebSockets
 
 		public void Init()
 		{
-            var targetIP = IPAddress.Parse("192.168.0.7");
+            var dns = Dns.GetHostEntry(Dns.GetHostName());
+            var possibleAddress = dns.AddressList.Where(x => x.AddressFamily == AddressFamily.InterNetwork).FirstOrDefault();
+
+            var targetIP = possibleAddress.MapToIPv4();
             address = targetIP + ":" + this.Port;
 
             listener = new TcpListener(new IPEndPoint(targetIP, this.Port));
