@@ -186,12 +186,12 @@ namespace WebSockets
 
                     data.Add(s.ToByte());
 
-                    var __a = new ByteAsBits(new BitArray(new int[] { msg.Length }).ToBools()).Reverse;
+                    var lengthAsBytes = new ByteAsBits(new BitArray(new int[] { msg.Length }).ToBools()).Reverse;
 
-                    var b = __a[0, 8];
-                    var c = __a[8, 16];
-                    var d = __a[16, 24];
-                    var e = __a[24, 32];
+                    var b = lengthAsBytes[0, 8];
+                    var c = lengthAsBytes[8, 16];
+                    var d = lengthAsBytes[16, 24];
+                    var e = lengthAsBytes[24, 32];
 
                     data.Add(b.GetBits().ToByte());
                     data.Add(c.GetBits().ToByte());
@@ -204,12 +204,12 @@ namespace WebSockets
 
                     data.Add(s.ToByte());
 
-                    var __a = new ByteAsBits(new BitArray(new int[] { msg.Length }).ToBools()).Reverse;
+                    var lengthAsBytes = new ByteAsBits(new BitArray(new int[] { msg.Length }).ToBools()).Reverse;
 
-                    var b = __a[0, 8];
-                    var c = __a[8, 16];
-                    var d = __a[16, 24];
-                    var e = __a[24, 32];
+                    var b = lengthAsBytes[0, 8];
+                    var c = lengthAsBytes[8, 16];
+                    var d = lengthAsBytes[16, 24];
+                    var e = lengthAsBytes[24, 32];
 
                     data.Add(d.GetBits().ToByte());
                     data.Add(e.GetBits().ToByte());
@@ -230,8 +230,6 @@ namespace WebSockets
         public WebSocketMessage ProcessPacket()
         {
             WebSocketMessage msg = new WebSocketMessage();
-
-            int offset = 0;
 
             byte data = this.GetByte();
 
@@ -293,7 +291,7 @@ namespace WebSockets
 
             msg.Data = new List<byte>();
 
-            for (int i = offset; i < msg.PayloadLength; i++)
+            for (int i = 0; i < msg.PayloadLength; i++)
                 msg.Data.Add(this.GetByte());
 
             //DeXOR payload
