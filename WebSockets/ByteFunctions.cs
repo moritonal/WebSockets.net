@@ -11,32 +11,32 @@ namespace WebSockets
     {
         static public ByteAsBits GetBits(this byte b)
         {
-            BitArray bb = new BitArray(new byte[] { b });
-            var _ = bb.ToBools();
+            BitArray bitArray = new BitArray(new byte[] { b });
+            var _ = bitArray.ToBools();
             _.Reverse();
             return new ByteAsBits(_);
         }
 
-        static public List<bool> ToBools(this BitArray b)
+        static public List<bool> ToBools(this BitArray bitArray)
         {
-            return b.OfType<bool>().ToList();
+            return bitArray.OfType<bool>().ToList();
         }
 
-        static public byte ToByte(this BitArray b)
+        static public byte ToByte(this BitArray bitArray)
         {
             byte[] _b = new byte[1];
-            b.CopyTo(_b, 0);
+            bitArray.CopyTo(_b, 0);
             return _b[0];
         }
 
-        static public bool IsNull(this object b)
+        static public bool IsNull(this object bitArray)
         {
-            return b == null;
+            return bitArray == null;
         }
 
-        static public bool IsNotNull(this object b)
+        static public bool IsNotNull(this object bitArray)
         {
-            return !b.IsNull();
+            return !bitArray.IsNull();
         }
     }
 }

@@ -128,9 +128,7 @@ namespace WebSockets
         {
             var buffer = this.Recieve();
             if (buffer.Length > 0)
-            {
                 handshake = new WebSocketHandshake(SocketClient.Encoder.GetString(buffer));
-            }
         }
 
         public virtual void PerformHandshake()

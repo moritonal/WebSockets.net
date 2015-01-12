@@ -22,7 +22,7 @@ namespace WebSockets
             this.client.SendPacket(root.ToString());
         }
 
-        public void Send(string p, params KeyValuePair<string, string>[] args)
+        public void Send(string msg, params KeyValuePair<string, string>[] args)
         {
             JObject a = new JObject();
 
@@ -31,24 +31,24 @@ namespace WebSockets
                 a.Add(arg.Key, arg.Value);
             }
 
-            this.Send(p, a);
+            this.Send(msg, a);
         }
 
-        public void Send(string p, JObject a)
+        public void Send(string msg, JObject args)
         {
             JObject root = new JObject();
 
-            root["event"] = p;
-            root["data"] = a;
+            root["event"] = msg;
+            root["data"] = args;
 
             this.Send(root);
         }
 
-        public void Send(string p)
+        public void Send(string msg)
         {
             JObject root = new JObject();
 
-            root["event"] = p;
+            root["event"] = msg;
             root["data"] = new JObject();
 
             this.Send(root);
