@@ -25,15 +25,18 @@ namespace WebSockets
         public Action<HttpSocketClient> onHttpRequest;
 
         public int Port;
+        public IPAddress IP;
 
-        public WebSocketServer(int Port)
+        public WebSocketServer(int Port = 80, IPAddress IP = null)
         {
             this.Port = Port;
+            this.IP = IP;
         }
 
         ~WebSocketServer()
         {
-            listener.Stop();
+            if (listener.IsNotNull())
+                listener.Stop();
         }
 
         public IEnumerable<WebSocketClient> WebSocketClients
@@ -56,13 +59,17 @@ namespace WebSockets
 
 		public void Init()
 		{
-            var dns = Dns.GetHostEntry(Dns.GetHostName());
-            var possibleAddress = dns.AddressList.Where(x => x.AddressFamily == AddressFamily.InterNetwork).FirstOrDefault();
+            if (IP.IsNull())
+            {
+                var dns = Dns.GetHostEntry(Dns.GetHostName());
+                var possibleAddress = dns.AddressList.Where(x => x.AddressFamily == AddressFamily.InterNetwork).FirstOrDefault();
 
-            var targetIP = possibleAddress.MapToIPv4();
-            address = targetIP + ":" + this.Port;
+                var targetIP = possibleAddress.MapToIPv4();
+                this.IP = possibleAddress;
+            } 
 
-            listener = new TcpListener(new IPEndPoint(targetIP, this.Port));
+            address = this.IP + ":" + this.Port;
+            listener = new TcpListener(new IPEndPoint(this.IP, this.Port));
             listener.Start();
 
             AcceptClient();
