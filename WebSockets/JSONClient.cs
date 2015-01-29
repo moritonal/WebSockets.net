@@ -9,17 +9,21 @@ namespace WebSockets
 {
     public class JSONClient
     {
-        protected WebSocketClient client;
-        public Action<JObject> onMessageRecieved = null;
+        protected WebSocketClient webSocketClient;
 
         public JSONClient(WebSocketClient client)
         {
-            this.client = client;
+            this.webSocketClient = client;
+        }
+
+        public static implicit operator WebSocketClient(JSONClient client)
+        {
+            return client.webSocketClient;
         }
 
         public void Send(JObject root)
         {
-            this.client.SendPacket(root.ToString());
+            this.webSocketClient.SendPacket(root.ToString());
         }
 
         public void Send(string msg, params KeyValuePair<string, string>[] args)

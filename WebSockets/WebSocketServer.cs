@@ -108,7 +108,7 @@ namespace WebSockets
                 else
                 {
                     SslStream sslStream = new SslStream(socketClient.tcpClient.GetStream(), true);
-                    var a = new X509Certificate2(Environment.CurrentDirectory + "\\..\\..\\..\\Certs\\server.pfx", "test");
+                    var a = new X509Certificate2(Environment.CurrentDirectory + "\\Cert\\server.pfx", "test");
                     sslStream.AuthenticateAsServer(a, false, SslProtocols.Default, false);
                     sslStream.ReadTimeout = 5000;
                     sslStream.WriteTimeout = 5000;

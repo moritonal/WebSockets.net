@@ -11,21 +11,21 @@ namespace WebSockets
     {
         public Dictionary<string, Action<JObject>> events = new Dictionary<string, Action<JObject>>();
 
-        public BoundJSONClient(WebSocketClient client) : base(client)
+        public Action<String, JObject> onDeadEnd;
+
+        public BoundJSONClient(WebSocketClient client, bool bind = true) : base(client)
         {
-            this.client.onMessageRecieved = (WebSocketMessage msg) =>
-                {
-                    var obj = msg.DataAsJson;
-                    if (obj.IsNotNull())
+            if (bind)
+                this.webSocketClient.onMessageRecieved = (WebSocketMessage msg) =>
                     {
-                        var eventName = (string)obj["event"];
-                        var args = (JObject)obj["data"];
-                        if (this.events.ContainsKey(eventName))
-                        {
-                            this.events[eventName](args);
-                        }
-                    }
-                };
+                        this.passMessage(msg);
+                    };
+        }
+
+        public BoundJSONClient()
+            : base(null)
+        {
+
         }
 
         public Action<JObject> this[string key]
@@ -44,11 +44,35 @@ namespace WebSockets
         {
             get
             {
-                return client.onSocketClosed;
+                return webSocketClient.onSocketClosed;
             }
             set
             {
-                client.onSocketClosed = value;
+                webSocketClient.onSocketClosed = value;
+            }
+        }
+
+        public void passMessage(WebSocketMessage msg)
+        {
+            var obj = msg.DataAsJson;
+            if (obj.IsNotNull())
+            {
+                var eventName = (string)obj["event"];
+                var args = (JObject)obj["data"];
+                if (this.events.ContainsKey(eventName))
+                {
+                    this.events[eventName](args);
+                }
+                else
+                {
+                    if (this.onDeadEnd.IsNotNull())
+                        this.onDeadEnd(eventName, args);
+                    
+                }
+            }
+            else
+            {
+                throw new Exception("Could not understand message");
             }
         }
     }
